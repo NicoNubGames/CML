@@ -1,0 +1,42 @@
+
+
+
+// We make the reasonable assumption that we're looking at the chest in question
+
+// Then, to figure out whether the current chest is a SC or DC, we compare the
+// surrounding four blocks to see if there exists a chest of the same type.
+// If this is true, we are looking at a DC, else we are looking at a SC
+
+// If we are not currently looking at a chest, we will assume DC and warn console
+
+// As well, we will return none if GUI is not a chest
+
+UNSET(dc_chest)
+UNSET(sc_chest)
+UNSET(not_chest)
+
+IF(%GUI% = "GUICHEST")
+    dct_valid_chest_id = (%HITID% = "chest") || (%HITID% = "trapped_chest")
+
+    IF(dct_valid_chest_id)
+        #dct_incx = (%HITX% + 1)
+        #dct_decx = (%HITX% - 1)
+        #dct_incz = (%HITZ% + 1)
+        #dct_decz = (%HITZ% - 1)
+
+        GETID(%HITX%,%HITY%,%#dct_incz%,&dct_north_block)
+        GETID(%HITX%,%HITY%,%#dct_decz%,&dct_south_block)
+        GETID(%#dct_incx%,%HITY%,%HITZ%,&dct_east_block)
+        GETID(%#dct_decx%,%HITY%,%HITZ%,&dct_west_block)
+
+        dc_chest = (%&dct_north_block% = %HITID%) || (%&dct_south_block% = %HITID%)
+        dc_chest = (dc_chest) || (%&dct_east_block% = %HITID%)  || (%&dct_west_block% = %HITID%)
+
+        IF(!dc_chest)
+            SET(sc_chest)
+        ENDIF
+    ENDIF
+ELSEIF(%GUI% = "NONE")
+    SET(not_chest)
+ENDIF
+

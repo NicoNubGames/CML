@@ -1,0 +1,15 @@
+
+
+// Here we adapt Sanwi's approach of parameter passing, which easily allows
+// for the possibility of looping over tokens
+
+&iter_params[] = SPLIT(" ",$$[1]);
+
+ARRAYSIZE(&iter_params,#iter_size)
+#max_iter = (%#iter_size% - 1)
+
+FOR(#iter_i,0,%#max_iter%)
+    &iter_p = %&iter_params[%#iter_i%]%
+
+// In the user-code, we provide them with #iter_i and &iter_p, which is the
+// input index and parameter values respectively

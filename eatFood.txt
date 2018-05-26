@@ -1,0 +1,28 @@
+// Eat, if necessary.  By default, it won't eat any uncooked food, golden food, or "rare" food (stew, cake, cookies)
+// For list of foods accepted, see LOOP_FOODS
+
+IF(%HUNGER% <= 6)
+
+    UNSET(found_food)
+
+    $$<LOOP_FOODS.txt>
+        PICK(%&iter_food%)
+
+        IF(%ITEM%=%&iter_food%)
+            SET(found_food)
+        ENDIF
+    NEXT
+
+    IF(%found_food%)
+
+        &food_selected = %ITEM%
+
+        KEYUP(forward)
+
+        // Eat until hunger is full, or we run out of our food selected
+        DO
+            KEY(use)
+            WAIT(1t)
+        UNTIL((%HUNGER%=20)||(%ITEM%!=%&food_selected%))
+    ENDIF
+ENDIF

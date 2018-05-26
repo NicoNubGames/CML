@@ -1,0 +1,22 @@
+
+// This script is a utility for developing bot schema. Specifically, it allows
+// one to efficiently find relative positions of chests for use in automated
+// inventory management applications.
+
+// For each execution, we add a 6-tuple to a log file:
+//  direction, delta_x, delta_y, delta_z, yaw, pitch
+
+// A secondary C++ script then parses this list and produces boilerplate code
+// which allows a bot scheme to get the exact block position and yaw/pitch
+// coordinates of a specific block of interest.
+
+#delta_x = (%HITX% - %XPOS%)
+#delta_y = (%HITY% - %YPOS%)
+#delta_z = (%HITZ% - %ZPOS%)
+#yaw = (%YAW% + 180)
+#pitch = %PITCH%
+
+LOG(%DIRECTION%)
+LOG("%#delta_x%, %#delta_y%, %#delta_z%, %#yaw%, %#pitch%")
+LOGTO("coordinates.txt","%#delta_x%, %#delta_y%, %#delta_z%, %#yaw%, %#pitch%")
+

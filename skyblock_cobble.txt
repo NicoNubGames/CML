@@ -1,0 +1,55 @@
+
+#chest_yaw=271
+#chest_pitch=50
+
+#block_yaw=180
+#block_pitch=50
+
+#block_x=52
+#block_y=64
+#block_z=298
+
+DO
+    LOOK(%#block_yaw%,%#block_pitch%)
+    WAIT(5t)
+
+    DO(3000)
+        IF(%HITID%="cobblestone")
+            IF((%HITX%=%#block_x%)&&(%HITY%=%#block_y%)&&(%HITZ%=%#block_z%))
+                PICK(stone_pickaxe)
+                KEY(attack)
+            ENDIF
+        ENDIF
+    LOOP
+
+    LOOK(%#chest_yaw%,%#chest_pitch%)
+    WAIT(5t)
+
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+
+        UNSET(@place_specific)
+        EXEC("placeSpecific.txt","placeSpecific","cobblestone")
+        DO
+            WAIT(1t)
+        UNTIL(@place_specific)
+    
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","stone_pickaxe",6)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+
+    // Close log chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+
+    ECHO("Another stack of cobble is available!")
+
+LOOP

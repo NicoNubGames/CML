@@ -1,0 +1,40 @@
+
+// Given an open chest, loop through inventory and hotbar and take specific
+// items from chest, which are passed as space-delimited parameter $$[1]
+
+UNSAFE(0)
+
+    // First, we confirm that the GUI currently matches a chest. If not, warn
+    // and return.
+    
+    IF(%GUI% != "GUICHEST")
+        LOG("&[libChest]&7 Warning: Chest was not open")
+        SET(@take_specific)
+        STOP
+    ENDIF
+
+    // Loop through items in selected range.  For each item, compare to inputs.
+    // If item is same as any input type, take item from chest.
+
+    $$<LOOP_CHEST.txt>
+        &item = %&inv_item%
+        #spot = %#inv_spot%
+    
+        UNSET(valid_item)
+        
+        $$<LOOP_INPUTS.txt>
+            &included_item = %&iter_p%
+    
+            valid_item = (%&item% = %&included_item%) || (valid_item)
+        NEXT
+    
+        IF(valid_item)
+            SLOTCLICK(%#spot%,L,1)
+            WAIT(2t)
+        ENDIF
+    
+    NEXT
+    
+    SET(@take_specific)
+
+ENDUNSAFE

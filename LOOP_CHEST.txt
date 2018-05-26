@@ -1,0 +1,40 @@
+
+// Assuming the chest is currently open (script precondition), 
+// provide the syntax to loop through the chest region, breaking
+// when our inventory (the 'destination') is full.  Intended as
+// a back-end utility for various chest-interface functionalities
+
+// We determine chest type, so we can set slot ranges correctly.
+
+$$<DETERMINE_CHEST_SIZE.txt>
+
+IF(dc_chest)
+    // Beginning of DC chest region
+    #inv_begin = 0
+
+    // End of DC chest region
+    #inv_end = 53
+
+    // Beginning of DC inventory region
+    #inv_destination_begin = 54
+
+    // End of DC hotbar region
+    #inv_destination_end = 89
+ELSE
+    // Beginning of SC chest region
+    #inv_begin = 0
+
+    // End of SC chest region
+    #inv_end = 26
+
+    // Beginning of SC inventory region
+    #inv_destination_begin = 27
+
+    // End of SC hotbar region
+    #inv_destination_end = 62
+ENDIF
+
+$$<CHESTLIB_LOOP.txt>
+
+// In user-code, we provide variables inv_spot and inv_item, which
+// correspond to item slot and item type respectively

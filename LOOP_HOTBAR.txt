@@ -1,0 +1,44 @@
+
+
+// We determine chest type, so we can set slot ranges correctly.
+
+$$<DETERMINE_CHEST_SIZE.txt>
+
+IF(dc_chest)
+    // Beginning of DC inventory region
+    #inv_begin = 81
+
+    // End of DC hotbar region
+    #inv_end = 89
+
+    // Beginning of DC chest region
+    #inv_destination_begin = 0
+
+    // End of DC chest region
+    #inv_destination_end = 53
+
+ELSEIF(sc_chest)
+    // Beginning of SC inventory region
+    #inv_begin = 54
+
+    // End of SC hotbar region
+    #inv_end = 62
+
+    // Beginning of SC chest region
+    #inv_destination_begin = 0
+
+    // End of SC chest region
+    #inv_destination_end = 26
+    
+ELSEIF(not_chest)
+    #inv_begin = 1
+    #inv_end = 9
+
+    #inv_destination_begin = 1
+    #inv_destination_begin = 9
+ENDIF
+
+$$<CHESTLIB_LOOP.txt>
+
+// In user-code, we provide variables inv_spot, inv_item, and inv_num, which
+// correspond to item slot, item type, and number of item in slot respectively

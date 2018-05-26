@@ -1,0 +1,31 @@
+
+// Given the specific looping parameters:
+//  {inv_begin, inv_end, inv_destination_begin, inv_destination_end}
+
+// Loop through those parameters, checking that destination is not full
+
+UNSET(@full)
+
+FOR(#inv_spot,%#inv_begin%,%#inv_end%)
+
+    // Determine if we have filled the destination space
+    UNSET(found_destination_space)
+    FOR(#dest_iter,%#inv_destination_begin%,%#inv_destination_end%)
+        GETSLOTITEM(%#dest_iter%,&dest_item)
+   
+        IF(%&dest_item% = "air")
+            SET(found_destination_space)
+            BREAK
+        ENDIF
+    NEXT
+
+    IF(!found_destination_space)
+        LOG("&[libChest]&7 Destination space filled up. Breaking loop")
+        SET(@full)
+        BREAK
+    ENDIF
+
+    GETSLOTITEM(%#inv_spot%,&inv_item,#inv_num)
+
+// In user-code, we provide variables inv_spot and inv_item, which
+// correspond to item slot and item type respectively

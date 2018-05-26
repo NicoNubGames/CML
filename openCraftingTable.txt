@@ -1,0 +1,52 @@
+UNSAFE(0)
+
+    // For one second maximum, keep checking whether current block looked at
+    // is crafting table.  This is so in-case the caller did not wait after looking,
+    // or other lag effects.
+    
+    FOR(#i,1,20)
+        is_table = (%HITID% = "crafting_table")
+    
+        IF(is_table)
+            BREAK
+        ENDIF
+    
+        WAIT(1t)
+    NEXT
+    
+    // If the block being look at was still not a table, log a warning and
+    // return to caller.
+    
+    IF(!is_table)
+        LOG("&a[openChest]&7 Warning: Block looked at was not table after 1s")
+        SET(@open_crafting_table)
+        STOP
+    ENDIF
+    
+    // If the block is a table now, keep attempting to open it until menu
+    // changes, for up to 5 seconds
+    
+    FOR(#i,1,100)
+        KEY(use)
+    
+        WAIT(1t)
+    
+        table_menu = (%GUI% = "GUICRAFTING")
+        IF(table_menu)
+            BREAK
+        ENDIF
+    NEXT
+    
+    // If we're still not at the menu, log a warning and return
+    
+    IF(!table_menu)
+        LOG("&a[openCraftingTable]&7 Warning: Table not opened after 5s")
+        SET(@open_crafting_table)
+        STOP
+    ENDIF
+    
+    // If here, we have successfully opened the table in a robust way
+    
+    SET(@open_crafting_table)
+
+ENDUNSAFE

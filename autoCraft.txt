@@ -1,0 +1,53 @@
+UNSAFE(0)
+
+	&slot[] = SPLIT(" ","N N N N N N N N N")
+
+	$$<LOOP_INPUTS.txt>
+		IF(%#iter_i% = 0)
+			&num_create = %&iter_p%
+		ELSE
+			#temp = %#iter_i% - 1
+			&slot[%#temp%] = %&iter_p%
+		ENDIF
+	NEXT
+
+	FOR(#i,0,8)
+		IF(%&slot[%#i%]% = "N")
+			&slot[%#i%] = ""
+		ENDIF
+	NEXT
+
+	// Code below modified from Sanwi's version.  Thanks, obby god!
+
+	FOR(#for,1,%&num_create%)
+	
+	        FOR(#forcraft,0,8)
+
+	                IF(%&slot[%#forcraft%]% != "")
+
+	                        FOR(#forsearch,10,45)
+
+	                                GETSLOT(%&slot[%#forcraft%]%,#stackslot,10)
+	                                GETSLOTITEM(%#stackslot%,&id,#stacksize)
+
+	                                IF("%&id%" = "%&slot[%#forcraft%]%")
+	                                        SLOTCLICK(%#stackslot%,L)
+	                                        WAIT(50ms)
+	                                        BREAK()
+	                                ENDIF
+	                        NEXT
+
+	                        #temp = %#forcraft% + 1
+	                        SLOTCLICK(%#temp%,R)
+	                        WAIT(5t)
+	                        SLOTCLICK(%#stackslot%)
+	                        WAIT(5t)
+	                ENDIF
+	        NEXT
+
+	        SLOTCLICK(0,R,true)  
+	NEXT
+
+	SET(@autocraft)
+
+ENDUNSAFE

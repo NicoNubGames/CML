@@ -1,0 +1,134 @@
+UNSAFE(0)
+LOG("&a[cobbleBot]&7 Start")
+
+// Setting to talk out-loud about status changes (chests full, need materials, etc.)
+SET(@chat_logs)
+
+// Common elements that hook into command-status system
+@&status = "Running"
+@&identity = "Cobblestone Bot"
+UNSET(@paused)
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Out of the four cardinal directions, one block will be cobblestone.
+// Turn towards that block (in case the bot didn't start in the correct orientation)
+// If more than one adjacent block is cobblestone, give up
+
+GETIDREL(0,0,-1,&n_block)
+GETIDREL(1,0,0,&e_block)
+GETIDREL(0,0,1,&s_block)
+GETIDREL(-1,0,0,&w_block)
+
+UNSET(ambiguous)
+#main_yaw = 0
+
+IF(%&n_block% = "cobblestone")
+    #main_yaw = %#yaw_north%
+ELSEIF(%&e_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_east%
+ELSEIF(%&s_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_south%
+ELSEIF(%&w_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_west%
+ENDIF
+
+IF(ambiguous)
+    LOG("&a[cobbleBot]&7 Stopping: More than 1 adjacent cobblestone block")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+IF(%#main_yaw% = 0)
+    LOG("&a[cobbleBot]&7 Stopping: No adjacent cobblestone blocks")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+// Now that we have verified there is exactly one adjacent cobblestone block, turn towards it
+
+LOOK(%#main_yaw%, 50)
+
+$$<cobbleBot_blockPositions.txt>
+// 1: Extra (junk)
+// 2: Logs/Picks
+// 3: Cobble 1
+// 4: Cobble 2
+// 5: Block (cobblestone)
+// 6: Crafting Table
+
+DO
+    IF(!@paused)
+        // Make sure we are looking correct way, so that handle_chests is populated with the correct
+        // block placements
+        LOOK(%#main_yaw%, 50)
+
+        // Place/get all appropriate items from chests
+        UNSET(@cobblebot_handle_chests)
+        EXEC("cobbleBot_handleChests.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@cobblebot_handle_chests)
+
+        LOOK(%#main_yaw%, 50)
+
+        // If necessary, craft some picks
+        UNSET(@cobblebot_handle_picks)
+        EXEC("cobbleBot_handlePicks.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@cobblebot_handle_picks)
+
+        IF (!@paused)
+            DO
+                PICK("stone_pickaxe")
+                LOOK(%#block5_yaw%,%#block5_pitch%)
+
+                #num_cobble = 0
+                $$<LOOP_HOTBAR.txt>
+                    IF(%&inv_item% = "cobblestone")
+                        #num_cobble = %#num_cobble% + %#inv_num%
+                    ENDIF
+                NEXT
+
+                IF((%HITID% = "cobblestone") && (%HITX% = %#block5_x%) && (%HITY% = %#block5_y%) && (%HITZ% = %#block5_z%))
+                    KEY(attack)
+                ENDIF
+
+                WAIT(1t)
+
+            UNTIL((%ITEM% != "stone_pickaxe") || (%#num_cobble% >= 128) || (%@paused%))
+            // Operate until we have 2 stacks in inventory (so, store every stack, because ~ 1 stack is kept for pick crafting)
+            // (or until we run out of picks)
+
+        ENDIF
+    ELSE
+        // If paused, we rotate so it's obvious
+        KEYUP(forward)
+        IF(%#pause_rotate_yaw% >= 540)
+            #pause_rotate_yaw = 180
+        ELSEIF(%#pause_rotate_yaw% < 180)
+            #pause_rotate_yaw = 180
+        ELSE
+            #pause_rotate_yaw = %#pause_rotate_yaw% + 2
+        ENDIF
+
+        LOOK(%#pause_rotate_yaw%, 50)
+    ENDIF
+LOOP
+
+@&status = "Idle"
+
+ENDUNSAFE()

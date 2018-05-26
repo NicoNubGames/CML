@@ -1,0 +1,41 @@
+
+// Given an open chest, loop through inventory and hotbar and place specific
+// items in chest, which were passed as a space-delimited string array in
+// the first parameter $$[1].
+
+UNSAFE(0)
+
+    // First, we confirm that the GUI currently matches a chest. If not, warn
+    // and return.
+    
+    IF(%GUI% != "GUICHEST")
+        LOG("&[libChest]&7 Warning: Chest was not open")
+        SET(@place_specific)
+        STOP
+    ENDIF
+
+    // Loop through items in selected range.  For each item, compare to inputs.
+    // If item is not any input type, place item in chest.
+
+    $$<LOOP_INVENTORY_AND_HOTBAR.txt>
+        &item = %&inv_item%
+        #spot = %#inv_spot%
+    
+        UNSET(valid_item)
+        
+        $$<LOOP_INPUTS.txt>
+            &included_item = %&iter_p%
+    
+            valid_item = (%&item% = %&included_item%) || (valid_item)
+        NEXT
+    
+        IF(valid_item)
+            SLOTCLICK(%#spot%,L,1)
+            WAIT(2t)
+        ENDIF
+    
+    NEXT
+    
+    SET(@place_specific)
+
+ENDUNSAFE

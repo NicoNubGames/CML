@@ -1,0 +1,37 @@
+
+UNSAFE(0)
+
+    // First, we confirm that the GUI currently matches a chest. If not, warn
+    // and return.
+    
+    IF(%GUI% != "GUICHEST")
+        LOG("&[libChest]&7 Warning: Chest was not open")
+        SET(@place_all_except)
+        STOP
+    ENDIF
+
+    // Loop through items in selected range.  For each item, compare to inputs.
+    // If item is not any input type, place item in chest.
+
+    $$<LOOP_INVENTORY_AND_HOTBAR.txt>
+        &item = %&inv_item%
+        #spot = %#inv_spot%
+    
+        SET(valid_item)
+        
+        $$<LOOP_INPUTS.txt>
+            &excluded_item = %&iter_p%
+    
+            valid_item = (%&item% != %&excluded_item%) && (valid_item)
+        NEXT
+    
+        IF(valid_item)
+            SLOTCLICK(%#spot%,L,1)
+            WAIT(2t)
+        ENDIF
+    
+    NEXT
+    
+    SET(@place_all_except)
+
+ENDUNSAFE

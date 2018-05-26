@@ -1,0 +1,28 @@
+
+UNSAFE(0)
+
+DO
+    GETIDREL(0,2,0,&b1)
+    GETIDREL(0,3,0,&b2)
+    GETIDREL(0,4,0,&b3)
+    GETIDREL(0,5,0,&b4)
+    GETIDREL(0,6,0,&b5)
+    
+    IF((%&b1%="log")||(%&b2%="log")||(%&b3%="log")||(%&b4%="log")||(%&b5%="log"))
+        KEYUP(forward)
+        LOOKS(+0,270,.2)
+        #timer = 0
+        PICK("stone_axe")
+        KEY(attack)
+        WAIT(1t)
+    ELSE
+        INC(#timer)
+        
+        IF(%#timer%>20)
+            SET(@treebot_treetop)
+            STOP()
+        ENDIF
+    ENDIF
+WHILE(1)
+
+ENDUNSAFE()

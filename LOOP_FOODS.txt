@@ -1,0 +1,5 @@
+    &iter_foods = "apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato"
+    &iter_foods[] = SPLIT(" ",%&iter_foods%)
+    FOREACH(&iter_foods,&iter_food)
+
+    // In the user-code, we provide "&iter_food", which is the current food being looped over

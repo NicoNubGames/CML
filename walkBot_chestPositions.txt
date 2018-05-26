@@ -1,0 +1,97 @@
+IF(%DIRECTION% = "N")
+    #block1_x = (%XPOS% - 1)
+    #block1_y = (%YPOS% + 0)
+    #block1_z = (%ZPOS% - 1)
+    #block1_yaw = 320
+    #block1_pitch = 46
+
+    #block2_x = (%XPOS% - 1)
+    #block2_y = (%YPOS% + 1)
+    #block2_z = (%ZPOS% - 1)
+    #block2_yaw = 322
+    #block2_pitch = 9
+
+    #block3_x = (%XPOS% + 1)
+    #block3_y = (%YPOS% + 0)
+    #block3_z = (%ZPOS% - 1)
+    #block3_yaw = 399
+    #block3_pitch = 48
+
+    #block4_x = (%XPOS% + 1)
+    #block4_y = (%YPOS% + 1)
+    #block4_z = (%ZPOS% - 1)
+    #block4_yaw = 400
+    #block4_pitch = 7
+ELSEIF(%DIRECTION% = "E")
+    #block1_x = (%XPOS% + 1)
+    #block1_y = (%YPOS% + 0)
+    #block1_z = (%ZPOS% - 1)
+    #block1_yaw = 410
+    #block1_pitch = 46
+
+    #block2_x = (%XPOS% + 1)
+    #block2_y = (%YPOS% + 1)
+    #block2_z = (%ZPOS% - 1)
+    #block2_yaw = 412
+    #block2_pitch = 9
+
+    #block3_x = (%XPOS% + 1)
+    #block3_y = (%YPOS% + 0)
+    #block3_z = (%ZPOS% + 1)
+    #block3_yaw = 489
+    #block3_pitch = 48
+
+    #block4_x = (%XPOS% + 1)
+    #block4_y = (%YPOS% + 1)
+    #block4_z = (%ZPOS% + 1)
+    #block4_yaw = 490
+    #block4_pitch = 7
+ELSEIF(%DIRECTION% = "S")
+    #block1_x = (%XPOS% + 1)
+    #block1_y = (%YPOS% + 0)
+    #block1_z = (%ZPOS% + 1)
+    #block1_yaw = 500
+    #block1_pitch = 46
+
+    #block2_x = (%XPOS% + 1)
+    #block2_y = (%YPOS% + 1)
+    #block2_z = (%ZPOS% + 1)
+    #block2_yaw = 502
+    #block2_pitch = 9
+
+    #block3_x = (%XPOS% - 1)
+    #block3_y = (%YPOS% + 0)
+    #block3_z = (%ZPOS% + 1)
+    #block3_yaw = 219
+    #block3_pitch = 48
+
+    #block4_x = (%XPOS% - 1)
+    #block4_y = (%YPOS% + 1)
+    #block4_z = (%ZPOS% + 1)
+    #block4_yaw = 220
+    #block4_pitch = 7
+ELSEIF(%DIRECTION% = "W")
+    #block1_x = (%XPOS% - 1)
+    #block1_y = (%YPOS% + 0)
+    #block1_z = (%ZPOS% + 1)
+    #block1_yaw = 230
+    #block1_pitch = 46
+
+    #block2_x = (%XPOS% - 1)
+    #block2_y = (%YPOS% + 1)
+    #block2_z = (%ZPOS% + 1)
+    #block2_yaw = 232
+    #block2_pitch = 9
+
+    #block3_x = (%XPOS% - 1)
+    #block3_y = (%YPOS% + 0)
+    #block3_z = (%ZPOS% - 1)
+    #block3_yaw = 309
+    #block3_pitch = 48
+
+    #block4_x = (%XPOS% - 1)
+    #block4_y = (%YPOS% + 1)
+    #block4_z = (%ZPOS% - 1)
+    #block4_yaw = 310
+    #block4_pitch = 7
+ENDIF

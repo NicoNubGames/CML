@@ -1,0 +1,64 @@
+
+// Given an open chest, loop through inventory and hotbar and take X amount
+// of a single specific item I
+
+UNSAFE(0)
+
+    // First, we confirm that the GUI currently matches a chest. If not, warn
+    // and return.
+    
+    IF(%GUI% != "GUICHEST")
+        LOG("&[libChest]&7 Warning: Chest was not open")
+        SET(@take_at_least)
+        SET(@take_at_least)
+        STOP
+    ENDIF
+
+    // Loop through items in chest. If they match $$[1], add that to our counter
+    // for grabbed amount.  Then compare counter with $$[2] and stop if neccessary
+
+    #amount_grabbed = 0
+
+    $$<LOOP_CHEST.txt>
+        &item = %&inv_item%
+        #spot = %#inv_spot%
+    
+        UNSET(valid_item)
+        
+        $$<LOOP_INPUTS.txt>
+            &included_item = %&iter_p%
+
+            IF(%&included_item%="food")
+
+                $$<LOOP_FOODS.txt>
+                    valid_item = (%&item% = %&iter_food%) || (valid_item)
+                NEXT
+            ELSE
+                valid_item = (%&item% = %&included_item%) || (valid_item)
+            ENDIF
+        NEXT
+    
+        IF(valid_item)
+            GETSLOTITEM(%#spot%,&id,#stack_amount)
+            #amount_grabbed = (%#amount_grabbed% + %#stack_amount%)
+
+            SLOTCLICK(%#spot%,L,1)
+            WAIT(2t)
+
+            grabbed_enough = (%#amount_grabbed% >= $$[2])
+
+            IF(grabbed_enough)
+                BREAK
+            ENDIF
+        ENDIF
+
+    NEXT
+
+    IF(!grabbed_enough)
+        LOG("&[libChest]&7 Was not able to fill request for $$[1]")
+        SET(@take_at_least)
+    ENDIF
+    
+    SET(@take_at_least)
+
+ENDUNSAFE

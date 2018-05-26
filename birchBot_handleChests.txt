@@ -1,0 +1,321 @@
+
+// Precondition: We are facing cardinal direction that chest array is
+// located towards.
+
+// We verify the correctness of all chests, moving items if necessary.
+
+// The first thing we do is verify that all chests exist. We build a list
+// of block coordinates corresponding to each indexed chest.
+
+// This script provides #blockN_x, #blockN_yaw, and so on. The block list
+// also accounts for direction when calculating block positions and yaw/pitch
+// angles.
+
+$$<birchBot_chestPositions.txt>
+    // 1: Log 1
+    // 2: Log 2
+    // 3: Log 3
+    // 4: Sapling
+    // 5: Axes, food, & cobblestone
+    // 6: Extra (junk)
+    // 7: Crafting Table
+
+UNSAFE(0)
+
+    // HANDLE LOG CHEST 1
+    
+    LOOKS(%#block3_yaw%,%#block3_pitch%,.2)
+    WAIT(5t)
+    
+    // Open log chest
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+    // Place all logs
+    UNSET(@place_specific)
+    EXEC("placeSpecific.txt","placeSpecific","log")
+    DO
+        WAIT(1t)
+    UNTIL(@place_specific)
+    
+    chest_full = @full
+    
+    // Take out anything that isn't a log
+    UNSET(@take_all_except)
+    EXEC("takeAllExcept.txt","takeAllExcept","log")
+    DO
+        WAIT(1t)
+    UNTIL(@take_all_except)
+
+    // Keep a log for axe generation
+    UNSET(@take_at_least)
+    EXEC("takeAtLeast.txt","takeAtLeast","log",3)
+    DO
+        WAIT(1t)
+    UNTIL(@take_at_least)
+    
+    // Close log chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+    
+    // HANDLE LOG CHEST 2
+    
+    // If the first chest was full, we need to attempt second log chest
+    IF(chest_full)
+    
+        LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
+        WAIT(5t)
+        
+        // Open log chest
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+        // Place all logs
+        UNSET(@place_specific)
+        EXEC("placeSpecific.txt","placeSpecific","log")
+        DO
+            WAIT(1t)
+        UNTIL(@place_specific)
+        
+        chest_full = @full
+        
+        // Take out anything that isn't a log
+        UNSET(@take_all_except)
+        EXEC("takeAllExcept.txt","takeAllExcept","log")
+        DO
+            WAIT(1t)
+        UNTIL(@take_all_except)
+
+        // Keep a log for axe generation
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","log",3)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+        
+        // Close log chest
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    
+    ENDIF
+    
+    // HANDLE LOG CHEST 3
+    
+    IF(chest_full)
+    
+        LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
+        WAIT(5t)
+        
+        // Open log chest
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+        // Place all logs
+        UNSET(@place_specific)
+        EXEC("placeSpecific.txt","placeSpecific","log")
+        DO
+            WAIT(1t)
+        UNTIL(@place_specific)
+        
+        chest_full = @full
+        
+        // Take out anything that isn't a log
+        UNSET(@take_all_except)
+        EXEC("takeAllExcept.txt","takeAllExcept","log")
+        DO
+            WAIT(1t)
+        UNTIL(@take_all_except)
+
+        // Keep a log for axe generation
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","log",3)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+        
+        // Close log chest
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    
+    ENDIF
+    
+    // Case that all DCs are full, we need to wait until that
+    // is fixed
+    
+    IF(chest_full)
+        IF(!%@paused%)
+            LOG("&a[birchBot]&7 Full log chest")
+            IF(%@chat_logs%)
+                ECHO("Full log chest")
+            ENDIF
+        ENDIF
+
+        @&status = "Full log chest"
+        SET(@paused)
+        SET(@verify_chest_correctness)
+        STOP
+    ENDIF
+    
+    // HANDLE SAPLING CHEST
+    
+    LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
+    WAIT(5t)
+    
+    // Open sapling chest
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+    // Place all saplings
+    UNSET(@place_specific)
+    EXEC("placeSpecific.txt","placeSpecific","sapling")
+    DO
+        WAIT(1t)
+    UNTIL(@place_specific)
+    
+    chest_full = @full
+    
+    // Take at least 64 saplings
+    UNSET(@take_at_least)
+    EXEC("takeAtLeast.txt","takeAtLeast","sapling",64)
+    DO
+        WAIT(1t)
+    UNTIL(@take_at_least)
+    
+    // Take out anything that isn't a sapling
+    UNSET(@take_all_except)
+    EXEC("takeAllExcept.txt","takeAllExcept","sapling")
+    DO
+        WAIT(1t)
+    UNTIL(@take_all_except)
+    
+    // Close sapling chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+    
+    IF(chest_full)
+        IF(!%@paused%)
+            LOG("&a[birchBot]&7 Full sapling chest")
+            IF(%@chat_logs%)
+                ECHO("Full sapling chest")
+            ENDIF
+        ENDIF
+
+        @&status = "Full sapling chest"
+        SET(@paused)
+        SET(@verify_chest_correctness)
+        STOP
+    ENDIF
+    
+    
+    
+    // HANDLE SUPPLIES CHEST
+    
+    LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
+    WAIT(5t)
+    
+    // Open supply chest
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+    // Place all stone axes and baked potatoes in supplies chest
+    UNSET(@place_specific)
+    EXEC("placeSpecific.txt","placeSpecific","stone_axe baked_potato cobblestone")
+    DO
+        WAIT(1t)
+    UNTIL(@place_specific)
+    
+    // Take at least 4 axes
+    UNSET(@take_at_least)
+    EXEC("takeAtLeast.txt","takeAtLeast","stone_axe",6)
+    DO
+        WAIT(1t)
+    UNTIL(@take_at_least)
+    
+    // Take at least 64 baked_potatoes
+    UNSET(@take_at_least)
+    EXEC("takeAtLeast.txt","takeAtLeast","baked_potato",64)
+    DO
+        WAIT(1t)
+    UNTIL(@take_at_least)
+
+    // Take 12 cobble
+    UNSET(@take_at_least)
+    EXEC("takeAtLeast.txt","takeAtLeast","cobblestone",12)
+    DO
+        WAIT(1t)
+    UNTIL(@take_at_least)
+    
+    // Close supply chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+    
+    
+    // HANDLE SWAP CHEST
+    
+    // Look at swap chest and place all items excluding:
+    //   birch_log, stone_axe, baked_potato, birch_sapling, apple
+    
+    LOOKS(%#block6_yaw%,%#block6_pitch%,.2)
+    WAIT(5t)
+    
+    // Open the swap chest
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+    // Place all our junk in swap chest, if any
+    UNSET(@place_all_except)
+    EXEC("placeAllExcept.txt","placeAllExcept","log stone_axe baked_potato sapling cobblestone")
+    DO
+        WAIT(1t)
+    UNTIL(@place_all_except)
+    
+    // Take out anything that does not belong in junk chest
+    UNSET(@take_specific)
+    EXEC("takeSpecific.txt","takeSpecific","log stone_axe baked_potato sapling cobblestone")
+    DO
+        WAIT(1t)
+    UNTIL(@take_specific)
+    
+    // Close swap chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+    
+    SET(@birchbot_handle_chests)
+
+ENDUNSAFE

@@ -1,0 +1,102 @@
+UNSAFE(0)
+
+    $$<cobbleBot_blockPositions.txt>
+    // 1: Extra (junk)
+    // 2: Logs/Picks
+    // 3: Cobble 1
+    // 4: Cobble 2
+    // 5: Block (cobblestone)
+    // 6: Crafting Table
+
+    // Count number of picks, logs, and cobble
+    #num_picks = 0
+    #num_logs = 0
+    #num_cobble = 0
+    $$<LOOP_HOTBAR.txt>
+        IF(%&inv_item% = "stone_pickaxe")
+            #num_picks = %#num_picks% + %#inv_num%
+        ENDIF
+
+        IF(%&inv_item% = "log")
+            #num_logs = %#num_logs% + %#inv_num%
+        ENDIF
+
+        IF(%&inv_item% = "cobblestone")
+            #num_cobble = %#num_cobble% + %#inv_num%
+        ENDIF
+    NEXT
+
+    IF(%#num_picks% = 0)
+        // We need to build a pick.  Check that we have all materials
+
+        IF(%#num_logs% = 0)
+            IF(!%@paused%)
+                LOG("&a[cobbleBot]&7 Out of logs")
+                IF(%@chat_logs%)
+                    ECHO("Out of logs")
+                ENDIF
+            ENDIF
+
+            @&status = "Out of logs"
+            SET(@paused)
+            SET(@cobblebot_handle_picks)
+            STOP
+        ENDIF
+
+        IF(%#num_cobble% < 12)
+            IF(!%@paused%)
+                LOG("&a[cobbleBot]&7 Out of cobble")
+                IF(%@chat_logs%)
+                    ECHO("Out of cobble")
+                ENDIF
+            ENDIF
+
+            @&status = "Out of cobble"
+            SET(@paused)
+            SET(@cobblebot_handle_picks)
+            STOP
+        ENDIF
+
+        // Craft 4 pickaxes from 1 log and 12 cobble
+        LOOKS(%#block6_yaw%,%#block6_pitch%,.2)
+        WAIT(5t)
+
+        UNSET(@open_crafting_table)
+        EXEC("openCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_crafting_table)
+
+            // Convert log to 4 planks
+            UNSET(@autocraft)
+            EXEC("autoCraft.txt", "autoCraft", "4 log")
+            DO
+                WAIT(1t)
+            UNTIL(@autocraft)
+
+            // Convert planks to 8 sticks
+            UNSET(@autocraft)
+            EXEC("autoCraft.txt", "autoCraft", "8 planks N N planks")
+            DO
+                WAIT(1t)
+            UNTIL(@autocraft)
+
+            // Craft 4 stone pickaxes
+            UNSET(@autocraft)
+            EXEC("autoCraft.txt", "autoCraft", "4 cobblestone cobblestone cobblestone N stick N N stick N")
+            DO
+                WAIT(1t)
+            UNTIL(@autocraft)
+
+        UNSET(@close_crafting_table)
+        EXEC("closeCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_crafting_table)
+
+        
+    ENDIF
+
+    SET(@cobblebot_handle_picks)
+
+ENDUNSAFE

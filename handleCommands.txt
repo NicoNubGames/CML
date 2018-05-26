@@ -1,0 +1,39 @@
+
+// Is this a private message?
+
+STRIP(&chat,%CHAT%)
+
+IFMATCHES(%&chat%,.* whispers to you:)
+
+	&username = ""
+	&command = ""
+
+    MATCH(%&chat%,^.*?(?= ),&username)
+    MATCH(%&chat%,\/.*(?=\b),&command)
+
+    IF(%&command% = "/help")
+    	ECHO("/msg %&username% help, status, identify, pause, resume")
+    ELSEIF(%&command% = "/status")
+    	ECHO("/msg %&username% %@&status%")
+    ELSEIF(%&command% = "/identify")
+    	ECHO("/msg %&username% %@&identity%")
+    ELSEIF(%&command% = "/pause")
+    	IF(!%@paused%)
+    		ECHO("/msg %&username% Paused")
+    		@&status = "Paused"
+    		SET(@paused)
+    	ELSE
+    		ECHO("/msg %&username% Already paused")
+    	ENDIF
+    ELSEIF(%&command% = "/resume")
+    	IF(%@paused%)
+    		ECHO("/msg %&username% Resumed")
+    		@&status = "Running"
+    		UNSET(@paused)
+    	ELSE
+    		ECHO("/msg %&username% Already running")
+    	ENDIF
+    ELSE
+    	ECHO("/msg %&username% Command not recognized: Try /help")
+    ENDIF
+ENDIF

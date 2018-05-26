@@ -1,0 +1,167 @@
+
+// Precondition: We are facing cardinal direction that chest array is
+// located towards.
+
+$$<walkBot_chestPositions.txt>
+
+UNSAFE(0)
+
+    // HANDLE CHEST 1
+    
+    LOOKS(%#block1_yaw%,%#block1_pitch%,.2)
+    WAIT(5t)
+    
+    // Open chest
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+        UNSET(@place_all_except)
+        EXEC("placeAllExcept.txt","placeAllExcept","")
+        DO
+            WAIT(1t)
+        UNTIL(@place_all_except)
+
+        chest_full = @full
+
+        // Take at least 64 food
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","food",64)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+        
+    // Close chest
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+    
+    // HANDLE CHEST 2
+    
+    // If the first chest was full, we need to attempt second chest
+    IF(chest_full)
+    
+        LOOKS(%#block2_yaw%,%#block2_pitch%,.2)
+        WAIT(5t)
+        
+        // Open chest
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+            UNSET(@place_all_except)
+            EXEC("placeAllExcept.txt","placeAllExcept","")
+            DO
+                WAIT(1t)
+            UNTIL(@place_all_except)
+
+            chest_full = @full
+
+            // Take at least 64 food
+            UNSET(@take_at_least)
+            EXEC("takeAtLeast.txt","takeAtLeast","food",64)
+            DO
+                WAIT(1t)
+            UNTIL(@take_at_least)
+            
+        // Close chest
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    
+    ENDIF
+    
+    // HANDLE CHEST 3
+    
+    IF(chest_full)
+    
+        LOOKS(%#block3_yaw%,%#block3_pitch%,.2)
+        WAIT(5t)
+        
+        // Open chest
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+            UNSET(@place_all_except)
+            EXEC("placeAllExcept.txt","placeAllExcept","")
+            DO
+                WAIT(1t)
+            UNTIL(@place_all_except)
+
+            chest_full = @full
+
+            // Take at least 64 food
+            UNSET(@take_at_least)
+            EXEC("takeAtLeast.txt","takeAtLeast","food",64)
+            DO
+                WAIT(1t)
+            UNTIL(@take_at_least)
+            
+        // Close chest
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    
+    ENDIF
+
+    IF(chest_full)
+
+        LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
+        WAIT(5t)
+        
+        // Open chest
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+            UNSET(@place_all_except)
+            EXEC("placeAllExcept.txt","placeAllExcept","")
+            DO
+                WAIT(1t)
+            UNTIL(@place_all_except)
+
+            chest_full = @full
+
+            // Take at least 64 food
+            UNSET(@take_at_least)
+            EXEC("takeAtLeast.txt","takeAtLeast","food",64)
+            DO
+                WAIT(1t)
+            UNTIL(@take_at_least)
+            
+        // Close chest
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+
+    ENDIF
+    
+    // Case that all DCs are full, we need to wait until that
+    // is fixed
+    
+    IF(chest_full)
+        LOG("&[walkBot]&7 Standing By: All log DCs are full")
+        SET(@walk_handle_chests)
+        STOP
+    ENDIF
+    
+    SET(@walk_handle_chests)
+
+ENDUNSAFE

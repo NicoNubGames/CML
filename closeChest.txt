@@ -1,0 +1,35 @@
+
+UNSAFE
+
+    // For 4 attempts over 1 second, attempt to close chest.  If
+    // menu is already not a chest, immediately break.
+    
+    FOR(#i,1,4)
+        menu_closed = (%GUI% != "GUICHEST")
+        IF(menu_closed)
+            BREAK
+        ENDIF
+    
+        PRESS(ESCAPE)
+    
+        WAIT(5t)
+    NEXT
+    
+    // If menu never closed during 1 second, log warning and return
+    
+    IF(!menu_closed)
+        LOG("&a[closeChest]&7 Warning: Chest not closed after 1s")
+        SET(@close_chest)
+        STOP
+    ENDIF
+    
+    // If menu is main menu, we pressed ESCAPE too many times.
+    
+    IF(%GUI% = "GUIINGAMEMENU")
+        LOG("&a[closeChest]&7 Warning: Menu glitch occurred. Tune delays.")
+        PRESS(ESCAPE)
+    ENDIF
+    
+    SET(@close_chest)
+
+ENDUNSAFE

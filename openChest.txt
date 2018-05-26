@@ -1,0 +1,52 @@
+UNSAFE(0)
+
+    // For one second maximum, keep checking whether current block looked at
+    // is chest.  This is so in-case the caller did not wait after looking,
+    // or other lag effects.
+    
+    FOR(#i,1,20)
+        is_chest = (%HITID% = "chest") || (%HITID% = "trapped_chest")
+    
+        IF(is_chest)
+            BREAK
+        ENDIF
+    
+        WAIT(1t)
+    NEXT
+    
+    // If the block being look at was still not a chest, log a warning and
+    // return to caller.
+    
+    IF(!is_chest)
+        LOG("&a[openChest]&7 Warning: Block looked at was not chest after 1s")
+        SET(@open_chest)
+        STOP
+    ENDIF
+    
+    // If the block is a chest now, keep attempting to open it until menu
+    // changes, for up to 5 seconds
+    
+    FOR(#i,1,100)
+        KEY(use)
+    
+        WAIT(1t)
+    
+        chest_menu = (%GUI% = "GUICHEST")
+        IF(chest_menu)
+            BREAK
+        ENDIF
+    NEXT
+    
+    // If we're still not at the menu, log a warning and return
+    
+    IF(!chest_menu)
+        LOG("&a[openChest]&7 Warning: Chest not opened after 5s")
+        SET(@open_chest)
+        STOP
+    ENDIF
+    
+    // If here, we have successfully opened the chest in a robust way
+    
+    SET(@open_chest)
+
+ENDUNSAFE
