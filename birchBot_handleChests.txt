@@ -24,7 +24,7 @@ UNSAFE(0)
 
     // HANDLE LOG CHEST 1
     
-    LOOKS(%#block3_yaw%,%#block3_pitch%,.2)
+    LOOKS(%#block1_yaw%,%#block1_pitch%,.2)
     WAIT(5t)
     
     // Open log chest
@@ -69,7 +69,7 @@ UNSAFE(0)
     // If the first chest was full, we need to attempt second log chest
     IF(chest_full)
     
-        LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
+        LOOKS(%#block2_yaw%,%#block2_pitch%,.2)
         WAIT(5t)
         
         // Open log chest
@@ -115,7 +115,7 @@ UNSAFE(0)
     
     IF(chest_full)
     
-        LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
+        LOOKS(%#block3_yaw%,%#block3_pitch%,.2)
         WAIT(5t)
         
         // Open log chest
@@ -163,7 +163,7 @@ UNSAFE(0)
     IF(chest_full)
         IF(!%@paused%)
             LOG("&a[birchBot]&7 Full log chest")
-            IF(%@chat_logs%)
+            IF(%@log_to_chat%)
                 ECHO("Full log chest")
             ENDIF
         ENDIF
@@ -219,7 +219,7 @@ UNSAFE(0)
     IF(chest_full)
         IF(!%@paused%)
             LOG("&a[birchBot]&7 Full sapling chest")
-            IF(%@chat_logs%)
+            IF(%@log_to_chat%)
                 ECHO("Full sapling chest")
             ENDIF
         ENDIF
@@ -244,9 +244,9 @@ UNSAFE(0)
         WAIT(1t)
     UNTIL(@open_chest)
     
-    // Place all stone axes and baked potatoes in supplies chest
+    // Place all stone axes and food in supplies chest
     UNSET(@place_specific)
-    EXEC("placeSpecific.txt","placeSpecific","stone_axe baked_potato cobblestone")
+    EXEC("placeSpecific.txt","placeSpecific","stone_axe food cobblestone")
     DO
         WAIT(1t)
     UNTIL(@place_specific)
@@ -258,9 +258,9 @@ UNSAFE(0)
         WAIT(1t)
     UNTIL(@take_at_least)
     
-    // Take at least 64 baked_potatoes
+    // Take at least 64 food
     UNSET(@take_at_least)
-    EXEC("takeAtLeast.txt","takeAtLeast","baked_potato",64)
+    EXEC("takeAtLeast.txt","takeAtLeast","food",64)
     DO
         WAIT(1t)
     UNTIL(@take_at_least)

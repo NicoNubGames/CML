@@ -33,7 +33,7 @@ UNSAFE(0)
         IF(%#num_logs% = 0)
             IF(!%@paused%)
                 LOG("&a[birchBot]&7 Out of logs")
-                IF(%@chat_logs%)
+                IF(%@log_to_chat%)
                     ECHO("Out of logs")
                 ENDIF
             ENDIF
@@ -47,7 +47,7 @@ UNSAFE(0)
         IF(%#num_cobble% < 12)
             IF(!%@paused%)
                 LOG("&a[birchBot]&7 Out of cobble")
-                IF(%@chat_logs%)
+                IF(%@log_to_chat%)
                     ECHO("Out of cobble")
                 ENDIF
             ENDIF

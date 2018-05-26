@@ -36,7 +36,7 @@ IF(%GUI% = "GUICHEST")
             SET(sc_chest)
         ENDIF
     ENDIF
-ELSEIF(%GUI% = "NONE")
+ELSEIF((%GUI% = "NONE") || (%GUI% = "GUIINVENTORY"))
     SET(not_chest)
 ENDIF
 

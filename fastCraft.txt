@@ -1,0 +1,309 @@
+UNSAFE(0)
+
+	#wait_ticks = 5
+
+	&slot[] = SPLIT(" ","_ N N N N N N N N N")
+
+	$$<LOOP_INPUTS.txt>
+		IF(%#iter_i% = 0)
+			// Workaround to convert string to integer
+			FOR(#temp,0,%&iter_p%)
+				#amount_to_create = %#temp%
+			NEXT
+		ELSE
+			&slot[%#iter_i%] = %&iter_p%
+		ENDIF
+	NEXT
+
+	FOR(#i,1,9)
+		IF(%&slot[%#i%]% = "N")
+			&slot[%#i%] = ""
+		ENDIF
+	NEXT
+
+	// Fast Binary Crafting Method
+
+	// For each slot in the crafting table, we need to fill it.  First check whether that item
+	// is in the inventory.  If it is, move it to the current slot, and iterate to the next crafting
+	// slot.
+	// If a current slot only has material in the crafting menu, find the slot with the maximum of that materials
+	// and split it evenly between the current slot.  Do this only if the total amount of that resource is at least
+	// equal to the amount the recipe takes of that item.
+
+	#num_items_crafted_so_far = 0
+	UNSET(finished_creating)
+	UNSET(material_runout)
+
+	&saved_product_id = ""
+
+	DO
+
+		FOR(#i,1,9)
+			// If the current slot needs items, count how many such items exist in our inventory
+			&needed_item = %&slot[%#i%]%
+			
+			IF(%&needed_item% != "")
+				// Count how many we have
+				#amount_have = 0
+				FOR(#j,1,45)
+					GETSLOTITEM(%#j%,&id,#num)
+					IF(%&id% = %&needed_item%)
+						#amount_have = %#amount_have% + %#num%
+					ENDIF
+				NEXT
+
+				// Count how many we need
+				#amount_need = 0
+				FOR(#j,1,9)
+					&id = %&slot[%#j%]%
+					IF(%&id% = %&needed_item%)
+						INC(#amount_need)
+					ENDIF
+				NEXT
+
+				IF(%#amount_need% > %#amount_have%)
+					// LOG("Crafting stop at slot %#i% due to material run-out.")
+					SET(finished_creating)
+					SET(material_runout)
+					BREAK
+				ENDIF
+
+				// Now that we know we have enough items for this slot, move an item
+				// from inventory to this slot, if possible, and if we don't already have that item in the slot
+				GETSLOTITEM(%#i%,&current_id)
+
+				IF(%&current_id% = "air")
+					UNSET(found_item)
+					FOR(#j,10,45)
+						GETSLOTITEM(%#j%,&id,#num)
+						IF(%&id% = %&needed_item%)
+							SLOTCLICK(%#j%,L)
+							WAIT(%#wait_ticks%t)
+							SET(found_item)
+							BREAK
+						ENDIF
+					NEXT
+
+					IF(%found_item%)
+						SLOTCLICK(%#i%,L)
+						WAIT(%#wait_ticks%t)
+					ELSE
+						// If inventory doesn't have any of that item, obtain item from _other_ crafting table entries,
+						// and obtain from slot with maximum number of that item
+						UNSET(found_item)
+						#max_slot = 0
+						#max_num = 0
+						FOR(#j,1,9)
+							IF(%#j% != %#i%)
+								GETSLOTITEM(%#j%,&id,#num)
+								IF(%&id% = %&needed_item%)
+									IF(%#num% > %#max_num%)
+										#max_num = %#num%
+										#max_slot = %#j%
+									ENDIF
+
+									SET(found_item)
+								ENDIF
+							ENDIF
+						NEXT
+
+						// If we did find an item matching our criteria, take _half_ from that crafting slot and put it into our
+						// current one
+						IF(%found_item%)
+							SLOTCLICK(%#max_slot%,R)
+							WAIT(%#wait_ticks%t)
+							SLOTCLICK(%#i%,L)
+							WAIT(%#wait_ticks%t)
+						ENDIF
+					ENDIF
+				ENDIF
+			ENDIF
+		NEXT
+
+		// At the end of our step, if there were not glitches, and the recipe was correct in the first place, there should be
+		// a product in slot 0
+
+		GETSLOTITEM(0,&product_id,#product_num)
+
+		IF((%&product_id% != "air") && !finished_creating)
+			&saved_product_id = %&product_id%
+
+			// If amount to create is set to zero, create as many as possible
+			IF(%#amount_to_create% = 0)
+				SLOTCLICK(0,L,1)
+				WAIT(%#wait_ticks%t)
+
+			// Otherwise, be careful how many we actually craft.  Loop through the crafting slots and find the minimum number of items
+			// in every non-air slot, to compute how many "batches" will be generated.  Multiply this by the num of the product.
+			ELSE
+				#num_min = 999
+				FOR(#i,1,9)
+					GETSLOTITEM(%#i%,&id,#num)
+
+					IF(%&id% != "air")
+						IF(%#num% < %#num_min%)
+							#num_min = %#num%
+						ENDIF
+					ENDIF
+				NEXT
+
+				#num_batches = %#num_min%
+				#num_crafted_items = %#num_min% * %#product_num%
+
+				// If the number of crafted items is less (or eq) than the number of items to craft minus the number we have crafted so far,
+				// just directly craft all the items.
+
+				IF(%#num_crafted_items% <= (%#amount_to_create% - %#num_items_crafted_so_far%))
+					SLOTCLICK(0,L,1)
+					WAIT(%#wait_ticks%t)
+					#num_items_crafted_so_far = %#num_items_crafted_so_far% + %#num_crafted_items%
+
+					// If there are still product items in slot 0, we ran out of inventory space
+					GETSLOTITEM(0,&id,#num)
+
+					// We don't check for air here, because out of coincidence a partial recipe for our item could end up being
+					// a recipe for another item, e.g. haybale vs bread
+					IF(%&id% = %&product_id%)
+						LOG("Crafting error, ran out of inventory space for products (during batch creation)")
+						SET(finished_creating)
+					ENDIF
+
+				ELSE
+					// Otherwise, carefully craft one-by-one until we have the exact number of items requested.  However, if the number
+					// of remaining batches doesn't decrease, we have an item we cannot hold multiple of (e.g. stone pickaxe)
+					// If this is the case, we need to one-by-one find an air slot for it
+
+					#prev_number_batches = %#num_batches%
+
+					DO
+						UNSET(one_hold_item)
+
+						DO
+							SLOTCLICK(0,L)
+							WAIT(%#wait_ticks%t)
+
+							// Calculate number of remaining batches
+							#num_min = 999
+							FOR(#i,1,9)
+								GETSLOTITEM(%#i%,&id,#num)
+
+								IF(%&id% != "air")
+									IF(%#num% < %#num_min%)
+										#num_min = %#num%
+									ENDIF
+								ENDIF
+							NEXT
+
+							#current_number_batches = %#num_min%
+
+							IF(%#prev_number_batches% = %#current_number_batches%)
+								// LOG("One-hold-item detected (Item we can only hold 1 of at a time, i.e. nonstackable)")
+								SET(one_hold_item)
+								BREAK
+							ENDIF
+
+							#prev_number_batches = %#current_number_batches%
+
+							#num_items_crafted_so_far = %#num_items_crafted_so_far% + %#product_num%
+
+						UNTIL(%#num_items_crafted_so_far% >= %#amount_to_create%)
+
+						// The outer loop only applies to one hold items
+						IF(!one_hold_item)
+							BREAK
+						ENDIF
+
+						// If it's a one-hold-item, we need to find air spaces to place in on each iteration
+						UNSET(found_air)
+						#air_slot = 0
+						FOR(#i,10,45)
+							GETSLOTITEM(%#i%,&id,#num)
+							IF(%&id% = "air")
+								#air_slot = %#i%
+								SET(found_air)
+								BREAK
+							ENDIF
+						NEXT
+
+						IF(%found_air%)
+							SLOTCLICK(%#air_slot%,L)
+							WAIT(%#wait_ticks%t)
+						ELSE
+							LOG("Crafting error, ran out of inventory space for products (during individual one-hold-item crafting)")
+							SET(finished_creating)
+						ENDIF
+
+					UNTIL(%#num_items_crafted_so_far% >= %#amount_to_create%)
+
+					// If we're not a one hold item, we need to place our final crafting item set
+					IF(!one_hold_item)
+						// Find an air space to place crafted items in
+						UNSET(found_air)
+						#air_slot = 0
+						FOR(#i,10,45)
+							GETSLOTITEM(%#i%,&id,#num)
+							IF(%&id% = "air")
+								#air_slot = %#i%
+								SET(found_air)
+								BREAK
+							ENDIF
+						NEXT
+
+						IF(%found_air%)
+							SLOTCLICK(%#air_slot%,L)
+							WAIT(%#wait_ticks%t)
+						ELSE
+							LOG("Crafting error, ran out of inventory space for products (during individual crafting)")
+							SET(finished_creating)
+						ENDIF
+					ENDIF
+
+					IF(%#num_items_crafted_so_far% >= %#amount_to_create%)
+						SET(finished_creating)
+					ENDIF
+				ENDIF
+			ENDIF
+		ELSE
+			IF(!material_runout)
+				LOG("Crafting error, did not find a product.  Either wrong recipe or a timing glitch?")
+				SET(finished_creating)
+			ELSE
+				IF(&saved_product_id != "")
+					IF(%#amount_to_create% > 0)
+						LOG("Materials ran out, %#num_items_crafted_so_far% / %#amount_to_create% %&saved_product_id% crafted")
+					ENDIF
+				ELSE
+					LOG("Crafting error, not enough materials")
+				ENDIF
+			ENDIF
+		ENDIF
+
+	UNTIL(finished_creating)
+
+
+	// Now we can clean up the crafting slot grid, just as an aesthetic thing
+	FOR(#i,1,9)
+		GETSLOTITEM(%#i%,&id)
+		IF(%&id% != "air")
+			SLOTCLICK(%#i%,L,1)
+			WAIT(%#wait_ticks%t)
+		ENDIF
+	NEXT
+
+	// If there is still stuff in the slot grid, we couldn't clear it out due to not enough inv space
+	SET(is_empty)
+	FOR(#i,1,9)
+		GETSLOTITEM(%#i%,&id)
+		IF(%&id% != "air")
+			UNSET(is_empty)
+		ENDIF
+	NEXT
+
+	IF(!is_empty)
+		LOG("Crafting error, could not clean up grid at end (maybe inventory was full?)")
+	ENDIF
+
+	SET(@fastcraft)
+	STOP
+
+ENDUNSAFE

@@ -1,0 +1,122 @@
+UNSAFE(0)
+
+	$$<fishBot_blockPositions.txt>
+    // 1: Fish 1
+    // 2: Fish 2
+    // 3: Logs/String/Rods
+    // 4: Extra
+    // 5: Water
+    // 6: Crafting Table
+
+	// Stop fishing, if we currently are fishing, by looping
+	#selected_slot = %INVSLOT%
+
+	FOR(#i,1,9)
+	    SLOT(%#i%)
+	    WAIT(1t)
+	NEXT
+
+	SLOT(%#selected_slot%)
+
+	// Turn towards fish 1 chest, deposit current fishing rod (enchanted)
+	LOOKS(%#block1_yaw%,%#block1_pitch%,.2)
+	WAIT(5t)
+
+	UNSET(@open_chest)
+	EXEC("openChest.txt")
+	DO
+	    WAIT(1t)
+	UNTIL(@open_chest)
+
+		SET(full)
+		$$<LOOP_CHEST.txt>
+			IF(%&inv_item% = "air")
+				UNSET(full)
+			ENDIF
+		NEXT
+
+		IF(!%full%)
+		    IF(dc_chest)
+		    	#offset = 80
+		    ELSE
+		    	#offset = 53
+		    ENDIF
+
+		    #spot = %#offset% + %#selected_slot%
+
+		    LOG(%#spot%)
+
+		    SLOTCLICK(%#spot%,L,1)
+		    WAIT(2t)
+		ENDIF
+
+	UNSET(@close_chest)
+	EXEC("closeChest.txt")
+	DO
+	    WAIT(1t)
+	UNTIL(@close_chest)
+
+	// If fish 1 chest is full, attempt operation on chest 2.
+	IF(%full%)
+		LOOKS(%#block2_yaw%,%#block2_pitch%,.2)
+		WAIT(5t)
+
+		UNSET(@open_chest)
+		EXEC("openChest.txt")
+		DO
+		    WAIT(1t)
+		UNTIL(@open_chest)
+
+			SET(full)
+			$$<LOOP_CHEST.txt>
+				IF(%&inv_item% = "air")
+					UNSET(full)
+				ENDIF
+			NEXT
+
+			IF(!%full%)
+			    IF(dc_chest)
+			    	#offset = 80
+			    ELSE
+			    	#offset = 53
+			    ENDIF
+
+			    #spot = %#offset% + %SLOT%
+
+			    SLOTCLICK(%#spot%,L,1)
+			    WAIT(2t)
+			ENDIF
+
+		UNSET(@close_chest)
+		EXEC("closeChest.txt")
+		DO
+		    WAIT(1t)
+		UNTIL(@close_chest)
+	ENDIF
+
+	// If chest 2 is full, enter "full loot chest" state
+	IF(%full%)
+	    IF(!%@paused%)
+	        LOG("&a[fishBot]&7 Full loot chest")
+	        IF(%@log_to_chat%)
+	            ECHO("Full loot chest")
+	        ENDIF
+	    ENDIF
+
+	    @&status = "Full loot chest"
+	    SET(@paused)
+	    SET(@fishbot_put_away_rod)
+	    STOP
+	ENDIF
+
+	// Otherwise, look back at water and (attempt to) continue fishing
+	LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
+	PICK(fishing_rod)
+	WAIT(5t)
+	IF(%ITEM% = "fishing_rod")
+		KEY(use)
+	ENDIF
+
+	SET(@fishbot_put_away_rod)
+
+ENDUNSAFE

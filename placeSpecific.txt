@@ -15,7 +15,7 @@ UNSAFE(0)
     ENDIF
 
     // Loop through items in selected range.  For each item, compare to inputs.
-    // If item is not any input type, place item in chest.
+    // If item is any of the inputs, place item in chest.
 
     $$<LOOP_INVENTORY_AND_HOTBAR.txt>
         &item = %&inv_item%
@@ -25,8 +25,14 @@ UNSAFE(0)
         
         $$<LOOP_INPUTS.txt>
             &included_item = %&iter_p%
-    
-            valid_item = (%&item% = %&included_item%) || (valid_item)
+
+            IF(%&included_item%="food")
+                $$<LOOP_FOODS.txt>
+                    valid_item = (%&item% = %&iter_food%) || (valid_item)
+                NEXT
+            ELSE
+                valid_item = (%&item% = %&included_item%) || (valid_item)
+            ENDIF
         NEXT
     
         IF(valid_item)

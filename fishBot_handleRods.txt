@@ -1,37 +1,37 @@
 UNSAFE(0)
 
-    $$<cobbleBot_blockPositions.txt>
-    // 1: Extra (junk)
-    // 2: Logs/Picks
-    // 3: Cobble 1
-    // 4: Cobble 2
-    // 5: Block (cobblestone)
+    $$<fishBot_blockPositions.txt>
+    // 1: Fish 1
+    // 2: Fish 2
+    // 3: Logs/String/Rods
+    // 4: Extra
+    // 5: Water
     // 6: Crafting Table
 
-    // Count number of picks, logs, and cobble
-    #num_picks = 0
+    // Count number of rods, logs, and string
+    #num_rods = 0
     #num_logs = 0
-    #num_cobble = 0
+    #num_string = 0
     $$<LOOP_HOTBAR.txt>
-        IF(%&inv_item% = "stone_pickaxe")
-            #num_picks = %#num_picks% + %#inv_num%
+        IF(%&inv_item% = "fishing_rod")
+            #num_rods = %#num_rods% + %#inv_num%
         ENDIF
 
         IF(%&inv_item% = "log")
             #num_logs = %#num_logs% + %#inv_num%
         ENDIF
 
-        IF(%&inv_item% = "cobblestone")
-            #num_cobble = %#num_cobble% + %#inv_num%
+        IF(%&inv_item% = "string")
+            #num_string = %#num_string% + %#inv_num%
         ENDIF
     NEXT
 
-    IF(%#num_picks% = 0)
+    IF(%#num_rods% = 0)
         // We need to build a pick.  Check that we have all materials
 
         IF(%#num_logs% = 0)
             IF(!%@paused%)
-                LOG("&a[cobbleBot]&7 Out of logs")
+                LOG("&a[fishBot]&7 Out of logs")
                 IF(%@log_to_chat%)
                     ECHO("Out of logs")
                 ENDIF
@@ -39,25 +39,25 @@ UNSAFE(0)
 
             @&status = "Out of logs"
             SET(@paused)
-            SET(@cobblebot_handle_picks)
+            SET(@fishbot_handle_rods)
             STOP
         ENDIF
 
-        IF(%#num_cobble% < 12)
+        IF(%#num_string% < 24)
             IF(!%@paused%)
-                LOG("&a[cobbleBot]&7 Out of cobble")
+                LOG("&a[fishBot]&7 Out of string")
                 IF(%@log_to_chat%)
-                    ECHO("Out of cobble")
+                    ECHO("Out of string")
                 ENDIF
             ENDIF
 
-            @&status = "Out of cobble"
+            @&status = "Out of string"
             SET(@paused)
-            SET(@cobblebot_handle_picks)
+            SET(@fishbot_handle_rods)
             STOP
         ENDIF
 
-        // Craft 4 pickaxes from 1 log and 12 cobble
+        // Craft 12 fishing rods from 3 logs and 24 string
         LOOKS(%#block6_yaw%,%#block6_pitch%,.2)
         WAIT(5t)
 
@@ -67,23 +67,23 @@ UNSAFE(0)
             WAIT(1t)
         UNTIL(@open_crafting_table)
 
-            // Convert log to 4 planks
+            // Convert 3 log to planks
             UNSET(@autocraft)
-            EXEC("autoCraft.txt", "autoCraft", "4 log")
+            EXEC("autoCraft.txt", "autoCraft", "3 log")
             DO
                 WAIT(1t)
             UNTIL(@autocraft)
 
-            // Convert planks to 8 sticks
+            // Convert 12 planks to sticks (6 planks in each slot)
             UNSET(@autocraft)
-            EXEC("autoCraft.txt", "autoCraft", "8 planks N N planks")
+            EXEC("autoCraft.txt", "autoCraft", "6 planks N N planks")
             DO
                 WAIT(1t)
             UNTIL(@autocraft)
 
-            // Craft 4 stone pickaxes
+            // Craft 8 fishing rods
             UNSET(@autocraft)
-            EXEC("autoCraft.txt", "autoCraft", "4 cobblestone cobblestone cobblestone N stick N N stick N")
+            EXEC("autoCraft.txt", "autoCraft", "8 N N stick N stick string stick N string")
             DO
                 WAIT(1t)
             UNTIL(@autocraft)
@@ -93,10 +93,9 @@ UNSAFE(0)
         DO
             WAIT(1t)
         UNTIL(@close_crafting_table)
-
         
     ENDIF
 
-    SET(@cobblebot_handle_picks)
+    SET(@fishbot_handle_rods)
 
 ENDUNSAFE

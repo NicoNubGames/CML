@@ -1,0 +1,7 @@
+#panic_initial_x = %XPOS%
+#panic_initial_y = %YPOS%
+#panic_initial_z = %ZPOS%
+
+#panic_prev_x = %XPOS%
+#panic_prev_x = %YPOS%
+#panic_prev_z = %ZPOS%

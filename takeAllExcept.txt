@@ -22,7 +22,13 @@ UNSAFE(0)
         $$<LOOP_INPUTS.txt>
             &excluded_item = %&iter_p%
     
-            valid_item = (%&item% != %&excluded_item%) && (valid_item)
+            IF(%&excluded_item%="food")
+                $$<LOOP_FOODS.txt>
+                    valid_item = (%&item% != %&iter_food%) && (valid_item)
+                NEXT
+            ELSE
+                valid_item = (%&item% != %&excluded_item%) && (valid_item)
+            ENDIF
         NEXT
     
         IF(valid_item)

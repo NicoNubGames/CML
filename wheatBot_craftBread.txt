@@ -1,0 +1,73 @@
+$$<wheatBot_chestPositions.txt>
+// 1: Wheat 1
+// 2: Wheat 2
+// 3: Wheat 3
+// 4: Seeds
+// 5: Food
+// 6: Extra
+// 7: Crafting Table
+
+UNSAFE(0)
+
+	// Count number of food and wheat in inventory
+
+	GUI(inventory)
+		WAIT(5t)
+
+	    #num_food = 0
+	    #num_wheat = 0
+
+	    $$<LOOP_INVENTORY.txt>
+	    	UNSET(is_food)
+
+	    	$$<LOOP_FOODS.txt>
+		        IF(%&inv_item% = %&iter_food%)
+		            SET(is_food)
+		        ENDIF
+	        NEXT
+
+	        IF(is_food)
+	        	#num_food = %#num_food% + %#inv_num%
+	        ENDIF
+
+	        IF(%&inv_item% = "wheat")
+	            #num_wheat = %#num_wheat% + %#inv_num%
+	        ENDIF
+	    NEXT
+	GUI
+
+	// If we don't have much food but we do have wheat, we can make bread to fix it.  If we have at least
+	// enough wheat to make one, do so, with the aim of making at least a stack
+	IF(%#num_food% <= 8)
+
+		IF(%#num_wheat% >= 3)
+
+		    LOOKS(%#block7_yaw%,%#block7_pitch%,.2)
+		    WAIT(5t)
+
+		    UNSET(@open_crafting_table)
+		    EXEC("openCraftingTable.txt")
+		    DO
+		        WAIT(1t)
+		    UNTIL(@open_crafting_table)
+
+	            // Craft 8 bread
+	            UNSET(@fastcraft)
+	            EXEC("fastCraft.txt", "fastCraft", "64 wheat wheat wheat N N N N N N")
+	            DO
+	                WAIT(1t)
+	            UNTIL(@fastcraft)
+
+	        UNSET(@close_crafting_table)
+	        EXEC("closeCraftingTable.txt")
+	        DO
+	            WAIT(1t)
+	        UNTIL(@close_crafting_table)
+
+		ENDIF
+
+	ENDIF
+
+ENDUNSAFE
+
+SET(@wheatbot_craft_bread)

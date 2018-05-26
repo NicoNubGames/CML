@@ -1,4 +1,3 @@
-
 // Is this a private message?
 
 STRIP(&chat,%CHAT%)

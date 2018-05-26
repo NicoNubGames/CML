@@ -16,7 +16,7 @@ IF(dc_chest)
 
     // End of DC chest region
     #inv_destination_end = 53
-ELSE
+ELSEIF(sc_chest)
     // Beginning of SC inventory region
     #inv_begin = 27
 
@@ -28,6 +28,11 @@ ELSE
 
     // End of SC chest region
     #inv_destination_end = 26
+ELSEIF(not_chest)
+    #inv_begin = 9
+    #inv_end = 44
+    #inv_destination_begin = 9
+    #inv_destination_begin = 44
 ENDIF
 
 $$<CHESTLIB_LOOP.txt>

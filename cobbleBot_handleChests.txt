@@ -51,7 +51,7 @@ UNSAFE(0)
         EXEC("placeSpecific.txt","placeSpecific","stone_pickaxe log")
         DO
             WAIT(1t)
-        UNTIL(@place_all_except)
+        UNTIL(@place_specific)
     
         UNSET(@take_all_except)
         EXEC("takeAllExcept.txt","takeAllExcept","stone_pickaxe log")
@@ -159,8 +159,8 @@ UNSAFE(0)
     IF(%chest_full%)
         IF(!%@paused%)
             LOG("&a[cobbleBot]&7 Full cobble chest")
-            IF(%@chat_logs%)
-                ECHO("Full cobble chest :). Resting now")
+            IF(%@log_to_chat%)
+                ECHO("Full cobble chest")
             ENDIF
         ENDIF
 

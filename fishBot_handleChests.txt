@@ -1,0 +1,193 @@
+UNSAFE(0)
+
+    $$<fishBot_blockPositions.txt>
+    // 1: Fish 1
+    // 2: Fish 2
+    // 3: Logs/String/Rods
+    // 4: Extra
+    // 5: Water
+    // 6: Crafting Table
+    
+    // In chest 1, deposit all possible loot from fishing (except for fishing rods, string, or junk)
+    // Take out anything that isn't loot, except for fishing rods (when fishing rods are in the loot chest,
+    // we assume they are damaged and should not be used)
+    LOOKS(%#block1_yaw%,%#block1_pitch%,.2)
+    WAIT(5t)
+    
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+    
+        UNSET(@place_specific)
+        EXEC("placeSpecific.txt","placeSpecific","fish bow enchanted_book name_tag saddle leather bone")
+        DO
+            WAIT(1t)
+        UNTIL(@place_specific)
+
+        chest_full = @full
+
+        UNSET(@take_all_except)
+        EXEC("takeAllExcept.txt","takeAllExcept","fish bow enchanted_book name_tag saddle leather bone fishing_rod")
+        DO
+            WAIT(1t)
+        UNTIL(@take_all_except)
+        
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+
+
+    // If chest 1 was full, attempt to place loot in chest 2
+    IF(%chest_full%)
+        LOOKS(%#block2_yaw%,%#block2_pitch%,.2)
+        WAIT(5t)
+        
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+        
+            UNSET(@place_specific)
+            EXEC("placeSpecific.txt","placeSpecific","fish bow enchanted_book name_tag saddle leather bone")
+            DO
+                WAIT(1t)
+            UNTIL(@place_specific)
+
+            chest_full = @full
+
+            UNSET(@take_all_except)
+            EXEC("takeAllExcept.txt","takeAllExcept","fish bow enchanted_book name_tag saddle leather bone fishing_rod")
+            DO
+                WAIT(1t)
+            UNTIL(@take_all_except)
+            
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    ENDIF
+
+    // If chest 2 was full, enter "loot chest full" state
+    IF(%chest_full%)
+        IF(!%@paused%)
+            LOG("&a[fishBot]&7 Full loot chest")
+            IF(%@log_to_chat%)
+                ECHO("Full loot chest")
+            ENDIF
+        ENDIF
+
+        @&status = "Full loot chest"
+        SET(@paused)
+        SET(@fishbot_handle_chests)
+        STOP
+    ENDIF
+
+    // In chest 3, requisition 3 logs, 24 string, and 4 rods
+    // (Will make 12 rods at a time)
+    LOOKS(%#block3_yaw%,%#block3_pitch%,.2)
+    WAIT(5t)
+    
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+
+        UNSET(@place_specific)
+        EXEC("placeSpecific.txt","placeSpecific","fishing_rod log string")
+        DO
+            WAIT(1t)
+        UNTIL(@place_specific)
+
+        // Record if input chest is full
+        chest_full = @full
+
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","fishing_rod",4)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","log",3)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","string",24)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
+        
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+
+    // If the "supplies" chest was full (such as a lot of string), enter state
+    IF(%chest_full%)
+        IF(!%@paused%)
+            LOG("&a[fishBot]&7 Full supplies chest")
+            IF(%@log_to_chat%)
+                ECHO("Full supplies chest")
+            ENDIF
+        ENDIF
+
+        @&status = "Full supplies chest"
+        SET(@paused)
+        SET(@fishbot_handle_chests)
+        STOP
+    ENDIF
+
+    // Deposit all junk in chest 4.  By this point we shouldn't have any loot left, so we don't bother excluding it
+    LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
+    WAIT(5t)
+    
+    UNSET(@open_chest)
+    EXEC("openChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@open_chest)
+
+        UNSET(@place_all_except)
+        EXEC("placeAllExcept.txt","placeAllExcept","fishing_rod string log")
+        DO
+            WAIT(1t)
+        UNTIL(@place_all_except)
+
+        chest_full = @full
+        
+    UNSET(@close_chest)
+    EXEC("closeChest.txt")
+    DO
+        WAIT(1t)
+    UNTIL(@close_chest)
+
+    // Since with fishing it is a likely nominal result that the junk chest could become full, we explicitly
+    // make it a part of the state.  Normally, we would not bother tracking situations that can only arise with
+    // active interference (such as players throwing tons of sticks at a bot)
+    IF(%chest_full%)
+        IF(!%@paused%)
+            LOG("&a[fishBot]&7 Full junk chest")
+            IF(%@log_to_chat%)
+                ECHO("Full junk chest")
+            ENDIF
+        ENDIF
+
+        @&status = "Full junk chest"
+        SET(@paused)
+        SET(@fishbot_handle_chests)
+        STOP
+    ENDIF
+    
+    SET(@fishbot_handle_chests)
+
+ENDUNSAFE

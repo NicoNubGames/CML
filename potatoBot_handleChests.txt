@@ -2,18 +2,18 @@
 // Precondition: We are facing cardinal direction that chest array is
 // located towards.
 
-$$<wheatBot_chestPositions.txt>
-// 1: Wheat 1
-// 2: Wheat 2
-// 3: Wheat 3
-// 4: Seeds
+$$<potatoBot_chestPositions.txt>
+// 1: Potato 1
+// 2: Potato 2
+// 3: Potato 3
+// 4: Poisonous
 // 5: Food
 // 6: Extra
-// 7: Crafting Table
+// 7: Crafting Table (Unused currently)
 
 UNSAFE(0)
 
-    // In chest 1, place all wheat and haybales (product)
+    // In chest 1, place potatoes, keeping 4 stacks for later
     LOOKS(%#block1_yaw%,%#block1_pitch%,.2)
     WAIT(5t)
     
@@ -24,7 +24,7 @@ UNSAFE(0)
     UNTIL(@open_chest)
     
         UNSET(@place_specific)
-        EXEC("placeSpecific.txt","placeSpecific","wheat hay_block")
+        EXEC("placeSpecific.txt","placeSpecific","potato")
         DO
             WAIT(1t)
         UNTIL(@place_specific)
@@ -32,10 +32,16 @@ UNSAFE(0)
         chest_full = %@full%
 
         UNSET(@take_all_except)
-        EXEC("takeAllExcept.txt","takeAllExcept","wheat hay_block")
+        EXEC("takeAllExcept.txt","takeAllExcept","potato")
         DO
             WAIT(1t)
         UNTIL(@take_all_except)
+
+        UNSET(@take_at_least)
+        EXEC("takeAtLeast.txt","takeAtLeast","potato",256)
+        DO
+            WAIT(1t)
+        UNTIL(@take_at_least)
         
     UNSET(@close_chest)
     EXEC("closeChest.txt")
@@ -56,7 +62,7 @@ UNSAFE(0)
         UNTIL(@open_chest)
         
             UNSET(@place_specific)
-            EXEC("placeSpecific.txt","placeSpecific","wheat hay_block")
+            EXEC("placeSpecific.txt","placeSpecific","potato")
             DO
                 WAIT(1t)
             UNTIL(@place_specific)
@@ -64,10 +70,16 @@ UNSAFE(0)
             chest_full = %@full%
 
             UNSET(@take_all_except)
-            EXEC("takeAllExcept.txt","takeAllExcept","wheat hay_block")
+            EXEC("takeAllExcept.txt","takeAllExcept","potato")
             DO
                 WAIT(1t)
             UNTIL(@take_all_except)
+
+            UNSET(@take_at_least)
+            EXEC("takeAtLeast.txt","takeAtLeast","potato",256)
+            DO
+                WAIT(1t)
+            UNTIL(@take_at_least)
             
         UNSET(@close_chest)
         EXEC("closeChest.txt")
@@ -89,7 +101,7 @@ UNSAFE(0)
         UNTIL(@open_chest)
         
             UNSET(@place_specific)
-            EXEC("placeSpecific.txt","placeSpecific","wheat hay_block")
+            EXEC("placeSpecific.txt","placeSpecific","potato")
             DO
                 WAIT(1t)
             UNTIL(@place_specific)
@@ -97,10 +109,16 @@ UNSAFE(0)
             chest_full = %@full%
 
             UNSET(@take_all_except)
-            EXEC("takeAllExcept.txt","takeAllExcept","wheat hay_block")
+            EXEC("takeAllExcept.txt","takeAllExcept","potato")
             DO
                 WAIT(1t)
             UNTIL(@take_all_except)
+
+            UNSET(@take_at_least)
+            EXEC("takeAtLeast.txt","takeAtLeast","potato",256)
+            DO
+                WAIT(1t)
+            UNTIL(@take_at_least)
             
         UNSET(@close_chest)
         EXEC("closeChest.txt")
@@ -109,23 +127,23 @@ UNSAFE(0)
         UNTIL(@close_chest)
     ENDIF
 
-    // If chest 3 is full, enter "wheat chest is full" state
+    // If chest 3 is full, enter "potato chest is full" state
     IF(%chest_full%)
         IF(!%@paused%)
-            LOG("&a[wheatBot]&7 Full wheat chest")
+            LOG("&a[potatoBot]&7 Full potato chest")
             IF(%@log_to_chat%)
-                ECHO("Full wheat chest")
+                ECHO("Full potato chest")
             ENDIF
         ENDIF
 
-        @&status = "Full wheat chest"
+        @&status = "Full potato chest"
         SET(@paused)
-        SET(@wheatbot_handle_chests)
+        SET(@potatobot_handle_chests)
         STOP
     ENDIF
 
 
-    // In chest 4, place all seeds (keep 4 stacks for later)
+    // In chest 4, place all poisonous potatoes
     LOOKS(%#block4_yaw%,%#block4_pitch%,.2)
     WAIT(5t)
     
@@ -136,7 +154,7 @@ UNSAFE(0)
     UNTIL(@open_chest)
     
         UNSET(@place_specific)
-        EXEC("placeSpecific.txt","placeSpecific","wheat_seeds")
+        EXEC("placeSpecific.txt","placeSpecific","poisonous_potato")
         DO
             WAIT(1t)
         UNTIL(@place_specific)
@@ -144,16 +162,10 @@ UNSAFE(0)
         chest_full = %@full%
 
         UNSET(@take_all_except)
-        EXEC("takeAllExcept.txt","takeAllExcept","wheat_seeds")
+        EXEC("takeAllExcept.txt","takeAllExcept","poisonous_potato")
         DO
             WAIT(1t)
         UNTIL(@take_all_except)
-
-        UNSET(@take_at_least)
-        EXEC("takeAtLeast.txt","takeAtLeast","wheat_seeds",256)
-        DO
-            WAIT(1t)
-        UNTIL(@take_at_least)
         
     UNSET(@close_chest)
     EXEC("closeChest.txt")
@@ -161,23 +173,23 @@ UNSAFE(0)
         WAIT(1t)
     UNTIL(@close_chest)
 
-    // If chest 4 is full, enter "seed chest is full" state
+    // If chest 4 is full, enter "poisonous potato chest is full" state
     IF(%chest_full%)
         IF(!%@paused%)
-            LOG("&a[wheatBot]&7 Full seed chest")
+            LOG("&a[potatoBot]&7 Full poisonous potato chest")
             IF(%@log_to_chat%)
-                ECHO("Full seed chest")
+                ECHO("Full poisonous potato chest")
             ENDIF
         ENDIF
 
-        @&status = "Full seed chest"
+        @&status = "Full poisonous potato chest"
         SET(@paused)
-        SET(@wheatbot_handle_chests)
+        SET(@potatobot_handle_chests)
         STOP
     ENDIF
 
 
-    // In chest 5, place all food and take a stack for later
+    // In chest 5, place all food (except for potato) and take a snack stack for later
     LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
     WAIT(5t)
     
@@ -188,7 +200,7 @@ UNSAFE(0)
     UNTIL(@open_chest)
     
         UNSET(@place_specific)
-        EXEC("placeSpecific.txt","placeSpecific","food")
+        EXEC("placeSpecific.txt","placeSpecific","apple melon carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato")
         DO
             WAIT(1t)
         UNTIL(@place_specific)
@@ -214,7 +226,7 @@ UNSAFE(0)
     UNTIL(@close_chest)
 
 
-    // In chest 6, place all extraneous junk
+    // In chest 6, place all extraneous junk (everything but 'food')
     LOOKS(%#block6_yaw%,%#block6_pitch%,.2)
     WAIT(5t)
     
@@ -225,7 +237,7 @@ UNSAFE(0)
     UNTIL(@open_chest)
     
         UNSET(@place_all_except)
-        EXEC("placeAllExcept.txt","placeAllExcept","food wheat_seeds")
+        EXEC("placeAllExcept.txt","placeAllExcept","food")
         DO
             WAIT(1t)
         UNTIL(@place_all_except)
@@ -237,6 +249,6 @@ UNSAFE(0)
     UNTIL(@close_chest)
 
     
-    SET(@wheatbot_handle_chests)
+    SET(@potatobot_handle_chests)
 
 ENDUNSAFE

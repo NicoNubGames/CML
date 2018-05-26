@@ -1,0 +1,14 @@
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+IF(%DIRECTION% = "N")
+    LOOK(%#yaw_north%,+0)
+ELSEIF(%DIRECTION% = "E")
+    LOOK(%#yaw_east%,+0)
+ELSEIF(%DIRECTION% = "S")
+    LOOK(%#yaw_south%,+0)
+ELSEIF(%DIRECTION% = "W")
+    LOOK(%#yaw_west%,+0)
+ENDIF

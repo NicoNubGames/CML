@@ -1,13 +1,14 @@
 UNSAFE(0)
-LOG("&a[birchBot]&7 Start")
+LOG("&a[potatoBot]&7 Start")
 
 // Setting to talk out-loud about status changes (chests full, need materials, etc.)
 SET(@log_to_chat)
-SET(@disconnect_on_panic)
+UNSET(@disconnect_on_panic)
+SET(@sprint_while_harvesting)
 
 // Common elements that hook into command-status system
 @&status = "Running"
-@&identity = "Birch Tree Bot"
+@&identity = "Potato Farm Bot"
 UNSET(@paused)
 
 #yaw_north = 360
@@ -17,81 +18,70 @@ UNSET(@paused)
 
 // Panic options
 $$<initPanic.txt>
-SET(movement_allowed)
-UNSET(allow_height_changes)
+SET(allow_movement)
+SET(allow_height_changes)
 
 // Ensure first check will always say block changed
 #pos_x = %XPOS% - 1
 #pos_z = %ZPOS% - 1
 
-#default_pitch = 50
-
-// We don't check whether we are in a valid 'starting' position, because we want to be able to re-enable the bot in any valid state
-// i.e. if the server goes down we want the bot to automatically start working again, rather than throw an error
+#default_pitch = 75
 
 DO
+    // Debug code to print how many ticks each iteration takes:
+    //#delta_ticks=%DAYTICKS%-%#day_ticks%
+    //LOG(%#delta_ticks%)
+    //#day_ticks=%DAYTICKS%
+
     IF(!@paused)
         // Look to default position
         LOOKS(+0,%#default_pitch%,.2)
         
         // Has our block position changed?
-        IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
-        
+        IF((%#pos_x%!=%XPOS%) || (%#pos_z%!=%ZPOS%))
+
             // Reset movement timer
             #movement_timer = 0
         
             // Get block standing on
             GETIDREL(0,-1,0,&standing_block)
-        
-            // Are we standing on cobblestone or stone brick stairs?
-            IF((%&standing_block% = "stone_stairs")||(%&standing_block% = "stone_brick_stairs"))
+            GETIDREL(0,0,0,&occupied_block)
+
+            // Are we standing on a cobblestone stair?
+            IF((%&standing_block%="stone_stairs")||(%&occupied_block%="stone_brick_stairs"))
         
                 KEYUP(forward)
             
-                // If this is a "home position", the direction of the adjacent crafting table will mark
-                // the direction of the chests
+                // The direction of the chests is marked by a crafting table
             
                 GETIDREL(0,-1,-1,&north_block)
                 GETIDREL(0,-1,1,&south_block)
                 GETIDREL(1,-1,0,&east_block)
                 GETIDREL(-1,-1,0,&west_block)
-
-                UNSET(home)
-            
+                
                 IF(%&north_block% = "crafting_table")
                     LOOKS(%#yaw_north%,%#default_pitch%,.2)
-                    SET(home)
+            
                 ELSEIF(%&east_block% = "crafting_table")
                     LOOKS(%#yaw_east%,%#default_pitch%,.2)
-                    SET(home)
+            
                 ELSEIF(%&south_block% = "crafting_table")
                     LOOKS(%#yaw_south%,%#default_pitch%,.2)
-                    SET(home)
+            
                 ELSEIF(%&west_block% = "crafting_table")
                     LOOKS(%#yaw_west%,%#default_pitch%,.2)
-                    SET(home)
-                ENDIF
-                
-                // If there is an adjacent crafting table, handle the chests
-                IF(home)
-                    WAIT(5t)
-
-                    // Handle inventory management
-                    UNSET(@birchbot_handle_chests)
-                    EXEC("birchBot_handleChests.txt")
-                    DO
-                        WAIT(1t)
-                    UNTIL(@birchbot_handle_chests)
-
-                    // Build 4 axes, if we need them
-                    UNSET(@birchbot_handle_axes)
-                    EXEC("birchBot_handleAxes.txt")
-                    DO
-                        WAIT(1t)
-                    UNTIL(@birchbot_handle_axes)
                 ENDIF
             
-                // Either way, we visually inspect the tile to decode which direction to initially walk
+                WAIT(5t)
+
+                // Now that we are looking at the chest set, we place our items appropriately
+                UNSET(@potatobot_handle_chests)
+                EXEC("potatoBot_handleChests.txt")
+                DO
+                    WAIT(1t)
+                UNTIL(@potatobot_handle_chests)
+            
+                // Now we visually inspect the tile to decode which direction to initially walk
             
                 LOOKS(+0,90,.2)
                 WAIT(5t)
@@ -110,70 +100,12 @@ DO
                 ENDIF
             
                 KEYDOWN(forward)
-        
-            // Are we standing on grass or dirt?
-            ELSEIF((%&standing_block%="grass")||(%&standing_block%="dirt"))
 
-                // Destroy top of tree, if any exists
-
-                UNSET(@treebot_treetop)
-                EXEC("birchBot_treeTop.txt")
-                DO
-                    WAIT(1t)
-                UNTIL(@treebot_treetop)
-
-                // We look in the four cardinal directions for floor log
-                IF(%DIRECTION% = "N")
-                    GETIDREL(0,-1,1,&block_behind)
-                ELSEIF(%DIRECTION% = "E")
-                    GETIDREL(-1,-1,0,&block_behind)
-                ELSEIF(%DIRECTION% = "S")
-                    GETIDREL(0,-1,-1,&block_behind)
-                ELSEIF(%DIRECTION% = "W")
-                    GETIDREL(1,-1,0,&block_behind)
-                ENDIF
-
-                IF(%&block_behind% = "birch_stairs")
-
-                    IF(%DIRECTION% = "N")
-                        GETIDREL(-1,-1,0,&block_left)
-                        GETIDREL(1,-1,0,&block_right)
-
-                    ELSEIF(%DIRECTION% = "E")
-                        GETIDREL(0,-1,-1,&block_left)
-                        GETIDREL(0,-1,1,&block_right)
-
-                    ELSEIF(%DIRECTION% = "S")
-                        GETIDREL(1,-1,0,&block_left)
-                        GETIDREL(-1,-1,0,&block_right)
-
-                    ELSEIF(%DIRECTION% = "W")
-                        GETIDREL(0,-1,1,&block_left)
-                        GETIDREL(0,-1,-1,&block_right)
-                    ENDIF
-
-                    IF(%&block_left% = "log")
-                        KEYUP(forward)
-                        LOOKS(-90,%#default_pitch%,.2)
-                        WAIT(3t)
-
-                    ELSEIF(%&block_right% = "log")
-                        KEYUP(forward)
-                        LOOKS(+90,%#default_pitch%,.2)
-                        WAIT(3t)
-                    ENDIF
-
-                    KEYDOWN(forward)
-
-                ENDIF
-        
             // Are we standing on birch stairs?
-            ELSEIF(%&standing_block%="birch_stairs")
-        
-                // Look towards birch stairs direction
+            ELSEIF((%&standing_block%="birch_stairs")||(%&occupied_block%="birch_stairs"))
 
                 KEYUP(forward)
-                
+
                 LOOKS(+0,90,.2)
                 WAIT(5t)
             
@@ -190,16 +122,60 @@ DO
                     LOOKS(%#yaw_west%,%#default_pitch%,.2)
                 ENDIF
 
-                // Destroy front of tree, if any exists, and plant saplings
-        
-                UNSET(@treebot_treefront)
-                EXEC("birchBot_treeFront.txt")
-                DO
-                    WAIT(1t)
-                UNTIL(@treebot_treefront)
+                WAIT(4t)
 
-            // Are we standing on a plank?
-            ELSEIF(%&standing_block% = "planks")
+                KEYDOWN(forward)
+
+            ELSEIF((%&standing_block%="farmland")||(%&occupied_block%="farmland"))
+
+                // Look down (if we aren't already)
+                LOOK(+0,%#default_pitch%)
+                PICK("potato")
+
+                IF(%HITID%="potatoes")
+                    // If the plant is potatoes, and it's fully grown, harvest it
+                    IF(%HIT_AGE%=7)
+                        KEY(attack)
+                        WAIT(1t)
+                        KEY(use)
+                    ENDIF
+
+                ELSEIF(%HITID%="farmland")
+                    // If the farmland is empty, plant a potato
+                    KEY(use)
+                ENDIF
+
+                // If we're on farmland and block in front of us is water with no block on top, there
+                // is an unprotected water block and we shouldn't continue, for fear of falling in.
+                IF(%DIRECTION% = "N")
+                    GETIDREL(0,0,-1,&block_ahead_floor)
+                    GETIDREL(0,1,-1,&block_ahead_top)
+                ELSEIF(%DIRECTION% = "E")
+                    GETIDREL(1,0,0,&block_ahead_floor)
+                    GETIDREL(1,1,0,&block_ahead_top)
+                ELSEIF(%DIRECTION% = "S")
+                    GETIDREL(0,0,1,&block_ahead_floor)
+                    GETIDREL(0,0,1,&block_ahead_top)
+                ELSEIF(%DIRECTION% = "W")
+                    GETIDREL(-1,0,0,&block_ahead_floor)
+                    GETIDREL(-1,1,0,&block_ahead_top)
+                ENDIF
+
+                IF((%&block_ahead_floor% = "water") && (%&block_ahead_top% = "air"))
+                    IF(!%@paused%)
+                        LOG("&a[potatoBot]&7 Unsafe water encountered")
+                        IF(%@log_to_chat%)
+                            ECHO("Unsafe water encountered")
+                        ENDIF
+                    ENDIF
+
+                    @&status = "Unsafe water encountered"
+                    SET(@paused)
+                    KEYUP(forward)
+                ENDIF
+
+            ELSEIF((%&standing_block%="planks")||(%&occupied_block%="planks"))
+
                 // If we're standing on a plank, and the block to the right is a plank,
                 // turn right.  Else, if there is one on left, turn left
 
@@ -226,8 +202,7 @@ DO
                     LOOK(-90,%#default_pitch%)
                 ENDIF
 
-            // Are we standing on a crafting table?
-            ELSEIF(%&standing_block% = "crafting_table")
+            ELSEIF((%&standing_block%="crafting_table")||(%&occupied_block%="crafting_table"))
                 // If we're standing on a crafting table, turns toward the adjacent stone stair block, if one exists
                 // This is able to handle the certain layout where a plank safety circuit leads the bot to the crafting table
 
@@ -255,8 +230,17 @@ DO
 
         ENDIF
 
-        // Walk
+        // If we're ever looking at an OPEN trapdoor, somebody is probably
+        // playing pranks.  Close the trapdoor
+        IF((%HITID% = "trapdoor") && (%HIT_OPEN%))
+            KEY(use)
+        ENDIF
+
         KEYDOWN(forward)
+
+        IF(%@sprint_while_harvesting%)
+            KEYDOWN(sprint)
+        ENDIF
         
         // Increment movement timer
         INC(#movement_timer)
@@ -268,27 +252,16 @@ DO
         ENDIF
 
         $$<eatFood.txt>
-
     ELSE
-        // If paused, we rotate pitch so it's obvious
-        KEYUP(forward)
-
-        #pause_rotate_pitch = %#pause_rotate_pitch% + 2
-
-        IF(%#pause_rotate_pitch% >= 90)
-            #pause_rotate_pitch = 0
-        ELSEIF(%#pause_rotate_pitch% < 0)
-            #pause_rotate_pitch = 0
-        ENDIF
-
-        LOOK(+0,%#pause_rotate_pitch%)
+        $$<pauseRotate.txt>
     ENDIF
 
     $$<snapYaw.txt>
     $$<checkForPanic.txt>
 
     WAIT(1t)
-
 LOOP
+
+@&status = "Idle"
 
 ENDUNSAFE

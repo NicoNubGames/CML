@@ -2,7 +2,8 @@ UNSAFE(0)
 LOG("&a[cobbleBot]&7 Start")
 
 // Setting to talk out-loud about status changes (chests full, need materials, etc.)
-SET(@chat_logs)
+SET(@log_to_chat)
+SET(@disconnect_on_panic)
 
 // Common elements that hook into command-status system
 @&status = "Running"
@@ -13,6 +14,11 @@ UNSET(@paused)
 #yaw_east = 450
 #yaw_south = 180
 #yaw_west = 270
+
+// Panic options
+$$<initPanic.txt>
+UNSET(movement_allowed)
+UNSET(allow_height_changes)
 
 // Out of the four cardinal directions, one block will be cobblestone.
 // Turn towards that block (in case the bot didn't start in the correct orientation)
@@ -53,6 +59,13 @@ ENDIF
 
 IF(%#main_yaw% = 0)
     LOG("&a[cobbleBot]&7 Stopping: No adjacent cobblestone blocks")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+GETIDREL(0,-1,0,&standing_block)
+IF(%&standing_block% != "crafting_table")
+    LOG("&a[cobbleBot]&7 Stopping: Not standing on crafting table")
     @&status = "Idle"
     STOP
 ENDIF
@@ -109,26 +122,22 @@ DO
 
                 WAIT(1t)
 
+                $$<checkForPanic.txt>
+
             UNTIL((%ITEM% != "stone_pickaxe") || (%#num_cobble% >= 128) || (%@paused%))
             // Operate until we have 2 stacks in inventory (so, store every stack, because ~ 1 stack is kept for pick crafting)
             // (or until we run out of picks)
 
         ENDIF
     ELSE
-        // If paused, we rotate so it's obvious
-        KEYUP(forward)
-        IF(%#pause_rotate_yaw% >= 540)
-            #pause_rotate_yaw = 180
-        ELSEIF(%#pause_rotate_yaw% < 180)
-            #pause_rotate_yaw = 180
-        ELSE
-            #pause_rotate_yaw = %#pause_rotate_yaw% + 2
-        ENDIF
-
-        LOOK(%#pause_rotate_yaw%, 50)
+        $$<pauseRotate.txt>
     ENDIF
+
+    $$<checkForPanic.txt>
+
+    WAIT(1t)
 LOOP
 
 @&status = "Idle"
 
-ENDUNSAFE()
+ENDUNSAFE

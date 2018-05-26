@@ -1,0 +1,55 @@
+$$<wheatBot_chestPositions.txt>
+// 1: Wheat 1
+// 2: Wheat 2
+// 3: Wheat 3
+// 4: Seeds
+// 5: Food
+// 6: Extra
+// 7: Crafting Table
+
+UNSAFE(0)
+
+	// Count number of wheat in inventory
+
+	GUI(inventory)
+		WAIT(5t)
+
+	    #num_wheat = 0
+
+	    $$<LOOP_INVENTORY.txt>
+	        IF(%&inv_item% = "wheat")
+	            #num_wheat = %#num_wheat% + %#inv_num%
+	        ENDIF
+	    NEXT
+	GUI
+
+	// If we have at least 9 wheat, go ahead and craft as many haybales as possible
+	IF(%#num_wheat% >= 9)
+
+	    LOOKS(%#block7_yaw%,%#block7_pitch%,.2)
+	    WAIT(5t)
+
+	    UNSET(@open_crafting_table)
+	    EXEC("openCraftingTable.txt")
+	    DO
+	        WAIT(1t)
+	    UNTIL(@open_crafting_table)
+
+            // Craft all haybales FAST
+            UNSET(@fastcraft)
+            EXEC("fastCraft.txt", "fastCraft", "0 wheat wheat wheat wheat wheat wheat wheat wheat wheat")
+            DO
+                WAIT(1t)
+            UNTIL(@fastcraft)
+
+        UNSET(@close_crafting_table)
+        EXEC("closeCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_crafting_table)
+
+	ENDIF
+
+ENDUNSAFE
+
+SET(@wheatbot_craft_haybales)

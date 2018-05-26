@@ -1,0 +1,13 @@
+// If paused, we rotate pitch so it's obvious
+KEYUP(forward)
+
+#pause_rotate_pitch = %#pause_rotate_pitch% + 2
+
+IF(%#pause_rotate_pitch% >= 90)
+    #pause_rotate_pitch = 0
+ELSEIF(%#pause_rotate_pitch% < 0)
+    #pause_rotate_pitch = 0
+ENDIF
+
+LOOK(+0,%#pause_rotate_pitch%)
+$$<snapYaw.txt>

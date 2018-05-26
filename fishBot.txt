@@ -1,0 +1,175 @@
+UNSAFE(0)
+LOG("&a[fishBot]&7 Start")
+
+// Setting to talk out-loud about status changes (chests full, need materials, etc.)
+SET(@log_to_chat)
+SET(@disconnect_on_panic)
+
+// Common elements that hook into command-status system
+@&status = "Running"
+@&identity = "Fishing Bot"
+UNSET(@paused)
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Panic options
+$$<initPanic.txt>
+UNSET(movement_allowed)
+UNSET(allow_height_changes)
+
+// Out of the four cardinal directions, one block will be water.
+// Turn towards that block (in case the bot didn't start in the correct orientation)
+// If more than one adjacent block is water, give up
+
+GETIDREL(0,-1,-1,&n_block)
+GETIDREL(1,-1,0,&e_block)
+GETIDREL(0,-1,1,&s_block)
+GETIDREL(-1,-1,0,&w_block)
+
+UNSET(ambiguous)
+#main_yaw = 0
+
+IF(%&n_block% = "water")
+    #main_yaw = %#yaw_north%
+ELSEIF(%&e_block% = "water")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_east%
+ELSEIF(%&s_block% = "water")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_south%
+ELSEIF(%&w_block% = "water")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_west%
+ENDIF
+
+IF(ambiguous)
+    LOG("&a[fishBot]&7 Stopping: More than 1 adjacent water block")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+IF(%#main_yaw% = 0)
+    LOG("&a[fishBot]&7 Stopping: No adjacent water blocks")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+GETIDREL(0,-1,0,&standing_block)
+IF(%&standing_block% != "crafting_table")
+    LOG("&a[fishBot]&7 Stopping: Not standing on crafting table")
+    @&status = "Idle"
+    STOP
+ENDIF
+
+// Now that we have verified there is exactly one adjacent water block, turn towards it
+
+LOOK(%#main_yaw%, 50)
+
+$$<fishBot_blockPositions.txt>
+// 1: Fish 1
+// 2: Fish 2
+// 3: Logs/String/Rods
+// 4: Extra
+// 5: Water
+// 6: Crafting Table
+
+DO
+    IF(!@paused)
+        // Make sure we are looking correct way, so that handle_chests is populated with the correct
+        // block placements
+        LOOK(%#main_yaw%, 50)
+
+        // Place/get all appropriate items from chests
+        UNSET(@fishbot_handle_chests)
+        EXEC("fishBot_handleChests.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@fishbot_handle_chests)
+
+        LOOK(%#main_yaw%, 50)
+
+        // If necessary, craft some rods
+        UNSET(@fishbot_handle_rods)
+        EXEC("fishBot_handleRods.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@fishbot_handle_rods)
+
+        IF (!@paused)
+
+            LOOKS(%#block5_yaw%,%#block5_pitch%,.2)
+            WAIT(5t)
+
+            // Loop through all slots to "reset" our rod, if necessary
+            FOR(#i,1,9)
+                SLOT(%#i%)
+                WAIT(1t)
+            NEXT
+
+            PICK("fishing_rod")
+
+            WAIT(5t)
+
+            KEY(use)
+
+            // Do for 2 minutes, or 2400 ticks
+            DO(2400)
+
+                // If we run out of rods, stop
+                IF(%ITEM% != "fishing_rod")
+                    BREAK
+                ENDIF
+
+                // Is the current rod enchanted?
+                UNSET(enchanted)
+                FOREACH(enchantments)
+                    SET(enchanted)
+                NEXT
+
+                // If the current rod is enchanted, and is about to break, place it in fish/loot
+                IF(enchanted)
+                    IF(%DURABILITY% <= 10)
+                        UNSET(@fishbot_put_away_rod)
+                        EXEC("fishBot_putAwayRod.txt")
+                        DO
+                            WAIT(1t)
+                        UNTIL(@fishbot_put_away_rod)
+                    ENDIF
+                ENDIF
+
+                PICK("fishing_rod")
+
+                $$<checkForPanic.txt>
+                WAIT(1t)
+
+            LOOP
+            // Operate until we have 2 stacks in inventory (so, store every stack, because ~ 1 stack is kept for pick crafting)
+            // (or until we run out of picks)
+
+            FOR(#i,1,9)
+                SLOT(%#i%)
+                WAIT(1t)
+            NEXT
+
+        ENDIF
+    ELSE
+        $$<pauseRotate.txt>
+    ENDIF
+
+    $$<checkForPanic.txt>
+
+    WAIT(1t)
+LOOP
+
+@&status = "Idle"
+
+ENDUNSAFE
