@@ -171,7 +171,7 @@ UNSAFE(0)
 				ELSE
 					// Otherwise, carefully craft one-by-one until we have the exact number of items requested.  However, if the number
 					// of remaining batches doesn't decrease, we have an item we cannot hold multiple of (e.g. stone pickaxe)
-					// If this is the case, we need to one-by-one find an air slot for it
+					// If this is the case, place the item in an air slot in the inventory
 
 					#prev_number_batches = %#num_batches%
 
@@ -228,9 +228,6 @@ UNSAFE(0)
 						IF(%found_air%)
 							SLOTCLICK(%#air_slot%,L)
 							WAIT(%#wait_ticks%t)
-						ELSE
-							LOG("Crafting error, ran out of inventory space for products (during individual one-hold-item crafting)")
-							SET(finished_creating)
 						ENDIF
 
 					UNTIL(%#num_items_crafted_so_far% >= %#amount_to_create%)
@@ -252,9 +249,6 @@ UNSAFE(0)
 						IF(%found_air%)
 							SLOTCLICK(%#air_slot%,L)
 							WAIT(%#wait_ticks%t)
-						ELSE
-							LOG("Crafting error, ran out of inventory space for products (during individual crafting)")
-							SET(finished_creating)
 						ENDIF
 					ENDIF
 
@@ -262,6 +256,16 @@ UNSAFE(0)
 						SET(finished_creating)
 					ENDIF
 				ENDIF
+			ENDIF
+
+			// If there are still product items in slot 0, we ran out of inventory space
+			GETSLOTITEM(0,&id,#num)
+
+			// We don't check for air here, because out of coincidence a partial recipe for our item could end up being
+			// a recipe for another item, e.g. haybale vs bread
+			IF(%&id% = %&product_id%)
+				LOG("Crafting error, ran out of inventory space for products")
+				SET(finished_creating)
 			ENDIF
 		ELSE
 			IF(!material_runout)

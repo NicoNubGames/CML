@@ -1,0 +1,85 @@
+graph TD
+subgraph Cobble Bot
+A[Verify we are at station]
+A-->D
+B[Handle chests]
+B-->C
+C[Handle pickaxes]
+C-->L
+D(Paused?)
+D--Yes-->K
+D--No-->B
+E[Pick stone pickaxe, look at cobblestone]
+E-->F
+F(Are we looking at cobblestone?)
+F--Yes-->G
+F--No-->H
+G[Attack cobblestone]
+G-->H
+H[Check for panic]
+H-->I
+I(Are we holding a pickaxe, and have less than<br>two stacks of cobblestone in our hotbar?)
+I --Yes-->E
+I--No-->J
+J[Check for panic]
+J-->D
+K[Rotate pitch to<br>show we're paused]
+K-->D
+L[Paused?]
+L--Yes-->J
+L--No-->E
+end
+
+subgraph Handle chests
+B1[In chest 1, deposit all junk except for picks, logs,<br>and cobble, and remove those three if found]
+B2[In chest 2, deposit logs and picks, and remove<br>everything else.  Then take 1 log and 4 picks]
+B3[In chest 3, deposit cobblestone and remove<br>everything else.  Keep 12 cobble]
+B4(Was chest 3 full?)
+B5[In chest 4 deposit all cobblestone, and remove<br>everything else, and keep 12 cobblestone]
+B6(Was chest 4 full?)
+B7["Set 'full cobble chest'<br> and pause"]
+B8[End]
+
+B1-->B2
+B2-->B3
+B3-->B4
+B4--Yes-->B5
+B4--No-->B6
+B5-->B6
+B6--Yes-->B7
+B6--No-->B8
+B7-->B8
+end
+
+subgraph Handle pickaxes
+C1[Count number of stone pickaxes,<br> logs, and cobblestone]
+C2(Do we have picks?)
+C3(Do we have logs?)
+C3_Error[Set 'out of logs'<br> and pause]
+C4(Do we have at least<br> 12 cobblestone?)
+C4_Error[Set 'out of cobblestone'<br> and pause]
+C5[Craft 4 logs]
+C6[Craft 8 sticks]
+C7[Craft 4 stone pickaxes]
+C8[End]
+
+C1-->C2
+C2--Yes-->C8
+C2--No-->C3
+C3--Yes-->C4
+C3--No-->C3_Error
+C4--Yes-->C5
+C4--No-->C4_Error
+C5-->C6
+C6-->C7
+C7-->C8
+end
+
+classDef question fill:#FFA5,stroke:#333
+classDef error fill:#FFCCCC,stroke:#333
+
+class D,F,I,L question
+class B4,B6 question
+class C2,C3,C4 question
+
+class C3_Error,C4_Error,B7 error

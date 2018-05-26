@@ -1,0 +1,54 @@
+graph TD
+B1["<div>Loop through input and set</div> &slot[] to a 1-indexed array"]
+B2[Set #amount_to_create]
+B3[Place crafting materials]
+B4(<div>Is there an item in product slot</div> or we're <b>finished_crafting</b>?)
+B5(Did we run out of material?)
+B6(Did we successfully craft anything?)
+B7(Were we supposed to craft a certain amount?)
+B8[<div>Either wrong recipe or timing</div> glitch, cannot find product]
+B9[Not enough materials to craft]
+B10[<div>Materials ran out, print</div> how many were crafted]
+B11(Are we supposed to craft a certain amount?)
+B12["<div>Craft all possible</div> (Shift+L click)"]
+B13[<div>If we craft all possible, will</div> we run over that amount?]
+B14[Craft items one-by-one</div> until limit it reached]
+B15["<div>Craft all possible</div> (Shift+L click)"]
+B16(<div>Is there still an item</div> in the product slot?)
+B17[Inventory is full]
+B18(Done with crafting loop?)
+B19[Clean up crafting grid]
+B20(Loop until crafting is done)
+
+B1-->B2
+B2-->B20
+B20-->B3
+B3-->B4
+B4--No-->B5
+B4--Yes-->B11
+B5--Yes-->B6
+B5--No-->B8
+B6--Yes-->B7
+B6--No-->B9
+B7--Yes-->B10
+B7--No-->B18
+B11--No-->B12
+B11--Yes-->B13
+B12-->B16
+B13--Yes-->B14
+B13--No-->B15
+B14-->B16
+B15-->B16
+B16--No-->B18
+B16--Yes-->B17
+B18--Yes-->B19
+
+class B5,B6,B7,B11,B13,B16,B18 question
+class B18,B20 loop
+class B8,B9,B10,B17 error
+class B3 call
+
+classDef question fill:#F1F6E0,stroke:#333
+classDef loop fill:#F4F2FF,stroke:#333
+classDef error fill:#FFCCCC,stroke:#333
+classDef call fill:#C8FFD6,stroke:#333

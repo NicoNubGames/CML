@@ -1,0 +1,38 @@
+graph TD
+
+A3(Loop through crafting grid #i=1..9)
+A4(Does the recipe have an item for the current slot?)
+A5[<div>Count how many we <b>have</b>,</div> vs. how many we <b>need</b>]
+A6(Do we need more materials than we have?)
+A7[<div>Set <b>finished_crafting</b> and</div> <b>material_runout</b>, and break]
+A8(Is the slot currently empty?)
+A9(Does the material exist in the inventory?)
+A10[<div>Use inventory stack with</div> maximum amount]
+A11[<div>Take <b>half</b> of the maximal crafting</div> stack and put it in the current one]
+A12(Done with crafting grid loop?)
+A13[End]
+
+A3-->A4
+A4--Yes-->A5
+A4--No-->A12
+A5-->A6
+A6--Yes-->A7
+A6--No-->A8
+A7-->A12
+A8--Yes-->A9
+A8--No-->A12
+A9--Yes-->A10
+A9--No-->A11
+A10-->A12
+A11-->A12
+A12--No-->A3
+A12--Yes-->A13
+
+class A4,A6,A8,A9 question
+class A3,A12 loop
+class A54 error
+
+classDef question fill:#F1F6E0,stroke:#333
+classDef loop fill:#F4F2FF,stroke:#333
+classDef error fill:#FFCCCC,stroke:#333
+classDef call fill:#C8FFD6,stroke:#333
