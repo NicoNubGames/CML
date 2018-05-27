@@ -61,7 +61,7 @@ However, the speed may be easily changed to run faster or slower depending on us
 ## Video Example <a name="fastcraft_video"></a>
 For a visual demonstration of the operation of FastCraft, see the following video:
 
-[(https://img.youtube.com/vi/2QkoqwsjU24/0.jpg)](https://youtu.be/2QkoqwsjU24)
+[![](https://img.youtube.com/vi/2QkoqwsjU24/0.jpg)](https://youtu.be/2QkoqwsjU24)
 
 ## Code Flowchart <a name="fastcraft_flowchart"></a>
 The following is a flowchart view of FastCraft's behavior.  Because of the focus on efficiency and the fact that there's many cases to handle, the logic is nested.  However, I've done my best to describe the code behavior in an intuitive way:
