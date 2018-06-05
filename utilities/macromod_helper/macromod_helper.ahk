@@ -14,7 +14,7 @@
 ;; This script (as well as any bots) are intended to be run on a dedicated Windows user account.  This way
 ;; the computer may still be used, but Minecraft will always have focus.
 ;;
-;; To download the extra required files, visit github.com/CML/utilities/macromod_helper/
+;; To download the extra required files, visit https://github.com/poteat/CML/tree/master/utilities/macromod_helper
 
 
 SendMode, Input
