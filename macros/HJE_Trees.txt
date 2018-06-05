@@ -1,0 +1,117 @@
+Aimuari made this. If you want help working through it, pm me.
+
+log(HJE_Tree bot started);
+echo(/gc HJE-IV Tree bot started at %XPOS% %ZPOS% on %DATE% %TIME%);
+
+do(36);
+	// orient
+	look(180,0);
+	wait(500ms);
+
+	Refill food
+	slot(1));
+	do(40);
+		key(use);
+	loop;
+	wait(500ms);
+
+
+
+	do(1);
+		#z_objective = %ZPOS% + 6;
+		look(180,26);
+		keydown(sneak);
+		// slot(1);
+		pick(stone_axe);
+		keydown(forward);
+		do;
+			key(attack);
+		until(%ZPOS% = #z_objective);
+		keyup(forward);
+		
+		// overshoot by one to make the system more robust.
+		#z_objective = %ZPOS% - 1;
+		keydown(back);
+		do;
+			// walking loop
+		until(%ZPOS% = #z_objective);
+		keyup(back);
+		
+		wait(500ms);
+		look(180,270);
+		do(200); //change this depending on tool used
+			key(attack);
+		loop;
+		
+		//plant sapling
+		look(180,90);
+		pick(sapling:2);
+		wait(100ms);
+		key(use);
+		wait(100ms);
+		
+		//discard old axe, pick a new one
+		pick(stone_axe);
+		wait(100ms);
+		if(%DURABILITY% < 7);
+			look(270,0);
+			wait(100ms);
+			key(drop);
+			wait(100ms);
+			pick(stone_axe);
+			look(180,0);
+			wait(100ms);
+		endif;
+		wait(100ms);
+		
+	loop;
+	
+	// discard birch logs into the flow to make room for axes and saplings
+	pick(log:2);
+	wait(100ms);
+	look(270,0);
+	do(128);
+		pick(log:2);
+		wait(100ms);
+		key(drop);
+	loop;
+	look(180,0);
+	wait(100ms);
+	
+	// return home
+	keyup(sneak);
+	keydown(back);
+	do;
+		//walking loop
+	until(%ZPOS% = 978);
+	keyup(back);
+
+
+	//To next row
+	#x_target = %XPOS% - 5;
+	keydown(right);
+	do;
+		//loop
+	until(%XPOS% = #x_target);
+	keyup(right);
+	
+	// refill saplings if there is a chest behind you
+	if((%XPOS% = -12575) || (%XPOS% = -12655))
+		look(0,0); // eye level, north
+		wait(100ms);
+		key(use); // open chest
+		wait(100ms);
+
+		for(#cfor,0,8);
+			getslot(sapling:2,#cslot,%#cfor%);
+			if(%#cslot% < 26)
+				slotclick(%#cslot%,1,true);
+			endif;
+			wait(100ms);
+		next;
+		
+		gui();
+	endif;
+
+loop;
+

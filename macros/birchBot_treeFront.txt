@@ -57,7 +57,8 @@ DO
     GETID(%#block2_x%,%#block2_y%,%#block2_z%,&above_block)
     
     // Are any two front blocks logs?
-    IF((%&below_block%="log") || (%&above_block%="log"))
+
+    IF((%&below_block% = "log") || (%&above_block% = "log"))
         
         IF(%&below_block%="log")
             LOOKS(+0,60,.2)
@@ -68,13 +69,17 @@ DO
         KEYUP(forward)
         #timer = 0
         PICK("stone_axe")
-        KEY(attack)
+
+        IF(%HITID% = "log")
+            KEY(attack)
+        ENDIF
+
         WAIT(1t)
     
     ELSE
         INC(#timer)
     
-        IF(%#timer%>20)
+        IF(%#timer% > 20)
             BREAK
         ENDIF
     ENDIF
@@ -89,6 +94,6 @@ IF(%&below_block%="air")
     KEY(use)
 ENDIF
 
-SET(@treebot_treefront)
+SET(@birchbot_treefront)
 
 ENDUNSAFE()

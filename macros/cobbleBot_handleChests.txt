@@ -37,7 +37,7 @@ UNSAFE(0)
     UNTIL(@close_chest)
 
 
-    // In chest 2, deposit logs and picks, and remove everything else.  Then take 1 log and 4 picks, if you can
+    // In chest 2, deposit logs and picks, and remove everything else.  Then take 1 log and 4 picks
     LOOKS(%#block2_yaw%,%#block2_pitch%,.2)
     WAIT(5t)
     
@@ -155,7 +155,7 @@ UNSAFE(0)
         UNTIL(@close_chest)
     ENDIF
 
-
+    // If chest 4 was full, enter "full cobble chest" state and pause
     IF(%chest_full%)
         IF(!%@paused%)
             LOG("&a[cobbleBot]&7 Full cobble chest")

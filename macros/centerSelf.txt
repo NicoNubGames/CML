@@ -1,0 +1,134 @@
+// Casually doing the impossible...
+
+// Center self on block
+
+// Before we start walking again, we need to make sure we're in the center of the path (so we don't run into objects)
+// If we're facing SOUTH or NORTH, we need to make sure X value is in middle
+// If we're facing EAST or WEST, we need to make sure Z value is in middle
+
+// Basically, we need to use regex to extract the string immediately after the decimal (i.e. the tenth's place)
+// If that coordinate is positive, then: too high needs right, and too low needs left (above 5 and below 4 respectively)
+// If the coordinate is negative, too high needs left, and too low needs right
+
+// Factors which "reverse" the sign: {S,E}   {neg, pos}
+
+IF((%DIRECTION% = "N")||(%DIRECTION% = "S"))
+    MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+    // Too high
+    IF((%&digit% = "6")||(%&digit% = "7")||(%&digit% = "8")||(%&digit% = "9"))
+        KEYDOWN(sneak)
+        DO
+            IF(%DIRECTION% = "N")
+                IF(%XPOS% > 0)
+                    KEYDOWN(left)
+                ELSE
+                    KEYDOWN(right)
+                ENDIF
+            ELSE
+                IF(%XPOS% > 0)
+                    KEYDOWN(right)
+                ELSE
+                    KEYDOWN(left)
+                ENDIF
+            ENDIF
+
+            WAIT(1t)
+            MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+        KEYUP(left)
+        KEYUP(right)
+        KEYUP(sneak)
+    ENDIF
+
+    // Too low
+    IF((%&digit% = "0")||(%&digit% = "1")||(%&digit% = "2")||(%&digit% = "3"))
+        KEYDOWN(sneak)
+        DO
+            IF(%DIRECTION% = "N")
+                IF(%XPOS% > 0)
+                    KEYDOWN(right)
+                ELSE
+                    KEYDOWN(left)
+                ENDIF
+            ELSE
+                IF(%XPOS% > 0)
+                    KEYDOWN(left)
+                ELSE
+                    KEYDOWN(right)
+                ENDIF
+            ENDIF
+
+            WAIT(1t)
+            MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+        KEYUP(left)
+        KEYUP(right)
+        KEYUP(sneak)
+
+    ENDIF
+ELSEIF((%DIRECTION% = "E")||(%DIRECTION% = "W"))
+    MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+    // Too high
+    IF((%&digit% = "6")||(%&digit% = "7")||(%&digit% = "8")||(%&digit% = "9"))
+        KEYDOWN(sneak)
+        DO
+            IF(%DIRECTION% = "W")
+                IF(%ZPOS% > 0)
+                    KEYDOWN(right)
+                ELSE
+                    KEYDOWN(left)
+                ENDIF
+            ELSE
+                IF(%ZPOS% > 0)
+                    KEYDOWN(left)
+                ELSE
+                    KEYDOWN(right)
+                ENDIF
+            ENDIF
+
+            WAIT(1t)
+            MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+        KEYUP(left)
+        KEYUP(right)
+        KEYUP(sneak)
+
+    ENDIF
+
+    // Too low
+    IF((%&digit% = "0")||(%&digit% = "1")||(%&digit% = "2")||(%&digit% = "3"))
+        KEYDOWN(sneak)
+        DO
+            IF(%DIRECTION% = "W")
+                IF(%ZPOS% > 0)
+                    KEYDOWN(left)
+                ELSE
+                    KEYDOWN(right)
+                ENDIF
+            ELSE
+                IF(%ZPOS% > 0)
+                    KEYDOWN(right)
+                ELSE
+                    KEYDOWN(left)
+                ENDIF
+            ENDIF
+
+            WAIT(1t)
+            MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+        KEYUP(left)
+        KEYUP(right)
+        KEYUP(sneak)
+
+    ENDIF
+ENDIF

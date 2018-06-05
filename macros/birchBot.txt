@@ -2,8 +2,14 @@ UNSAFE(0)
 LOG("&a[birchBot]&7 Start")
 
 // Setting to talk out-loud about status changes (chests full, need materials, etc.)
-SET(@log_to_chat)
-SET(@disconnect_on_panic)
+UNSET(@log_to_chat)
+UNSET(@disconnect_on_panic)
+UNSET(@disable_panic)
+
+// Parameters that depend on how large the farm is per chest station
+// Must be a multiple of 4, because we use 1 log each time
+@#num_axes_to_keep = 16
+@#num_saplings_to_keep = 384
 
 // Common elements that hook into command-status system
 @&status = "Running"
@@ -17,8 +23,8 @@ UNSET(@paused)
 
 // Panic options
 $$<initPanic.txt>
-SET(movement_allowed)
-UNSET(allow_height_changes)
+SET(allow_movement)
+SET(allow_height_changes)
 
 // Ensure first check will always say block changed
 #pos_x = %XPOS% - 1
@@ -91,23 +97,25 @@ DO
                     UNTIL(@birchbot_handle_axes)
                 ENDIF
             
+
                 // Either way, we visually inspect the tile to decode which direction to initially walk
-            
-                LOOKS(+0,90,.2)
-                WAIT(5t)
+                LOOK(+0,90)
+                WAIT(1t)
             
                 IF(%HIT_FACING% = "north")
-                    LOOKS(%#yaw_north%,%#default_pitch%,.2)
+                    LOOK(%#yaw_north%,%#default_pitch%)
             
                 ELSEIF(%HIT_FACING% = "east")
-                    LOOKS(%#yaw_east%,%#default_pitch%,.2)
+                    LOOK(%#yaw_east%,%#default_pitch%)
             
                 ELSEIF(%HIT_FACING% = "south")
-                    LOOKS(%#yaw_south%,%#default_pitch%,.2)
+                    LOOK(%#yaw_south%,%#default_pitch%)
             
                 ELSEIF(%HIT_FACING% = "west")
-                    LOOKS(%#yaw_west%,%#default_pitch%,.2)
+                    LOOK(%#yaw_west%,%#default_pitch%)
                 ENDIF
+
+                $$<centerSelf.txt>
             
                 KEYDOWN(forward)
         
@@ -168,11 +176,13 @@ DO
                 ENDIF
         
             // Are we standing on birch stairs?
-            ELSEIF(%&standing_block%="birch_stairs")
+            ELSEIF(%&standing_block% = "birch_stairs")
         
                 // Look towards birch stairs direction
 
                 KEYUP(forward)
+
+                $$<centerSelf.txt>
                 
                 LOOKS(+0,90,.2)
                 WAIT(5t)
@@ -191,12 +201,13 @@ DO
                 ENDIF
 
                 // Destroy front of tree, if any exists, and plant saplings
+                WAIT(2t)
         
-                UNSET(@treebot_treefront)
+                UNSET(@birchbot_treefront)
                 EXEC("birchBot_treeFront.txt")
                 DO
                     WAIT(1t)
-                UNTIL(@treebot_treefront)
+                UNTIL(@birchbot_treefront)
 
             // Are we standing on a plank?
             ELSEIF(%&standing_block% = "planks")

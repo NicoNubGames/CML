@@ -1,0 +1,119 @@
+UNSAFE(0)
+
+    $$<birchBot_chestPositions.txt>
+    // 1: Log 1
+    // 2: Log 2
+    // 3: Log 3
+    // 4: Sapling
+    // 5: Axes, food, & cobblestone
+    // 6: Extra (junk)
+    // 7: Crafting Table
+
+    // Count number of axes, logs, and cobble
+    #num_axes = 0
+    #num_logs = 0
+    #num_cobble = 0
+    GUI(inventory)
+    WAIT(2t)
+    FOR(#inv_spot,9,44)
+        GETSLOTITEM(%#inv_spot%,&inv_item,#inv_num)
+
+        IF(%&inv_item% = "stone_axe")
+            #num_axes = %#num_axes% + %#inv_num%
+        ENDIF
+
+        IF(%&inv_item% = "log")
+            #num_logs = %#num_logs% + %#inv_num%
+        ENDIF
+
+        IF(%&inv_item% = "cobblestone")
+            #num_cobble = %#num_cobble% + %#inv_num%
+        ENDIF
+    NEXT
+    GUI
+
+    IF(%#num_axes% < %@#num_axes_to_keep%)
+        // We need to build some axes.  Check that we have all materials
+
+        // We need 1 log for every 4 axes
+        #num_logs_needed = %@#num_axes_to_keep% / 4
+
+        IF(%#num_logs% < %#num_logs_needed%)
+            IF(!%@paused%)
+                LOG("&a[birchBot]&7 Out of logs for axes")
+                IF(%@log_to_chat%)
+                    ECHO("Out of logs for axes")
+                ENDIF
+            ENDIF
+
+            @&status = "Out of logs for axes"
+            SET(@paused)
+            SET(@birchbot_handle_axes)
+            STOP
+        ENDIF
+
+        // We need 3 cobble for every 1 axe
+        #num_cobble_needed = %@#num_axes_to_keep% * 3
+
+        IF(%#num_cobble% < %#num_cobble_needed%)
+            IF(!%@paused%)
+                LOG("&a[birchBot]&7 Out of cobblestone for axes")
+                IF(%@log_to_chat%)
+                    ECHO("Out of cobblestone for axes")
+                ENDIF
+            ENDIF
+
+            @&status = "Out of cobblestone for axes"
+            SET(@paused)
+            SET(@birchbot_handle_axes)
+            STOP
+        ENDIF
+
+        // Craft appropriate number of axes from materials
+        LOOKS(%#block7_yaw%,%#block7_pitch%,.2)
+        WAIT(5t)
+
+        UNSET(@open_crafting_table)
+        EXEC("openCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_crafting_table)
+
+            // Amount of planks to make will be number logs * 4
+            #num_planks_to_craft = %#num_logs_needed% * 4
+
+            // Convert logs to planks
+            UNSET(@fastcraft)
+            EXEC("fastCraft.txt", "fastCraft", "%#num_planks_to_craft% log")
+            DO
+                WAIT(1t)
+            UNTIL(@fastcraft)
+
+            // Amount of sticks made will be 4x amount of planks
+            #num_sticks_to_craft = %#num_planks_to_craft% * 4
+
+            // Convert 16 planks to 32 sticks
+            UNSET(@fastcraft)
+            EXEC("fastCraft.txt", "fastCraft", "%#num_sticks_to_craft% planks N N planks")
+            DO
+                WAIT(1t)
+            UNTIL(@fastcraft)
+
+            // Craft 16 stone axeaxes
+            UNSET(@fastcraft)
+            EXEC("autoCraft.txt", "fastCraft", "%@#num_axes_to_keep% N cobblestone cobblestone N stick cobblestone N stick N")
+            DO
+                WAIT(1t)
+            UNTIL(@fastcraft)
+
+        UNSET(@close_crafting_table)
+        EXEC("closeCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_crafting_table)
+        
+    ENDIF
+
+    SET(@birchbot_handle_axes)
+
+ENDUNSAFE
