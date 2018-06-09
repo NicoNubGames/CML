@@ -40,6 +40,12 @@ X := A_ScreenWidth - 150
 Y := A_ScreenHeight - 100
 Gui, Show, x%X% y%Y% NoActivate
 
+;; If Minecraft is not currently open, run it.
+
+If (!WinExist("Minecraft"))
+{
+	Run %A_AHKPath% "mc_start.ahk"
+}
 
 ensure_focus:
 	If (WinExist("Minecraft"))
@@ -90,7 +96,7 @@ daily_restart:
 		If (!starting_mc)
 		{
 			starting_mc := true ;; Only run once during this minute
-			Run %A_AHKPath% "mc_start.ahk" 
+			Run %A_AHKPath% "mc_start.ahk"
 		}
 	}
 	Else
