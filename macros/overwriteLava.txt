@@ -1,0 +1,36 @@
+// Will overwrite lava with cobblestone, if currently possible
+
+UNSAFE(0)
+DO
+	#x = %HITX%
+	#y = %HITY%
+	#z = %HITZ%
+
+	IF(%HITSIDE% == "N")
+		DEC(#z)
+	ELSEIF(%HITSIDE% == "E")
+		INC(#x)
+	ELSEIF(%HITSIDE% == "S")
+		INC(#z)
+	ELSEIF(%HITSIDE% == "W")
+		DEC(#x)
+	ELSEIF(%HITSIDE% == "B")
+		DEC(#y)
+	ELSEIF(%HITSIDE% == "T")
+		INC(#y)
+	ENDIF
+
+	GETID(%#x%,%#y%,%#z%,&id)
+
+	IF((%&id% == "lava") || (%&id% == "flowing_lava"))
+		#slot = %INVSLOT%
+		PICK(cobblestone)
+		WAIT(1t)
+		KEY(use)
+		WAIT(1t)
+		SLOT(%#slot%)
+	ENDIF
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE

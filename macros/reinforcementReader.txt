@@ -1,0 +1,6 @@
+STRIP(&chat,%CHAT%)
+
+IFBEGINSWITH(%&chat%,STONE)
+    LOG("Detected reinforcement-off")
+    UNSET(@reinforced)
+ENDIF

@@ -18,6 +18,12 @@ IF(%HUNGER% <= 6)
         &food_selected = %ITEM%
 
         KEYUP(forward)
+        KEYUP(left)
+        KEYUP(right)
+        KEYUP(back)
+        KEYUP(jump)
+
+        WAIT(5t)
 
         // Eat until hunger is full, or we run out of our food selected
         DO

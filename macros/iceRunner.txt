@@ -1,24 +1,13 @@
 LOG("Turning on Icesprint");
-$$<EatFoods.txt>;
- 
-if(%YAW% <= 45);
-    look(180,0);
-elseif(%YAW% <= 135);
-    look(270,0);
-elseif(%YAW% <= 225);
-    look(0,0);
-elseif(%YAW% <= 315);
-    look(90,0);
-else;
-    look(180,0);
-endif;
- 
-wait(5t);
-#i = 0;
-#j = 0;
-keydown(forward);
-sprint();
- 
+
+UNSAFE(0)
+     
+    wait(5t);
+    #i = 0;
+    #j = 0;
+    keydown(forward);
+    sprint();
+     
     do;
             sprint();
             if( ("%KEY_W%" = "True") || ("%KEY_S%" = "True") );
@@ -28,7 +17,6 @@ sprint();
             else;
                     #i = %#i% + 1;
                     if(#i >= 20);
-                            $$<EatFoods.txt>;
                             sprint();
                             keydown(forward);
                             #i = 0;
@@ -43,8 +31,80 @@ sprint();
                             #j = 0;
                     endif;
             endif;
+
+            IF(%HUNGER% <= 6)
+
+                UNSET(found_food)
+
+                &iter_foods = "apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato"
+                &iter_foods[] = SPLIT(" ",%&iter_foods%)
+                FOREACH(&iter_foods,&iter_food)
+
+                // In the user-code, we provide "&iter_food", which is the current food being looped over
+                    PICK(%&iter_food%)
+
+                    IF(%ITEM%=%&iter_food%)
+                        SET(found_food)
+                    ENDIF
+                NEXT
+
+                IF(%found_food%)
+
+                    &food_selected = %ITEM%
+
+                    KEYUP(forward)
+                    KEYUP(left)
+                    KEYUP(right)
+                    KEYUP(back)
+                    KEYUP(jump)
+
+                    WAIT(5t)
+
+                    // Eat until hunger is full, or we run out of our food selected
+                    DO
+                        KEY(use)
+                        WAIT(1t)
+                    UNTIL((%HUNGER%=20)||(%ITEM%!=%&food_selected%))
+                ENDIF
+            ENDIF
+
+            KEYDOWN(forward)
+
+            #yaw_south = 180
+            #yaw_west = 270
+            #yaw_north = 360
+            #yaw_east = 450
+
+            #yaw_southwest = 225
+            #yaw_northwest = 315
+            #yaw_northeast = 405
+            #yaw_southeast = 495
+
+            #yaw = %YAW% + 180
+
+            IF((%#yaw% >= 517) || (%#yaw% < 202))
+                LOOK(%#yaw_south%,+0)
+            ELSEIF((%#yaw% >= 202) && (%#yaw% < 247))
+                LOOK(%#yaw_southwest%,+0)
+            ELSEIF((%#yaw% >= 247) && (%#yaw% < 292))
+                LOOK(%#yaw_west%,+0)
+            ELSEIF((%#yaw% >= 292) && (%#yaw% < 337))
+                LOOK(%#yaw_northwest%,+0)
+            ELSEIF((%#yaw% >= 337) && (%#yaw% < 382))
+                LOOK(%#yaw_north%,+0)
+            ELSEIF((%#yaw% >= 382) && (%#yaw% < 427))
+                LOOK(%#yaw_northeast%,+0)
+            ELSEIF((%#yaw% >= 427) && (%#yaw% < 472))
+                LOOK(%#yaw_east%,+0)
+            ELSEIF((%#yaw% >= 472) && (%#yaw% < 517))
+                LOOK(%#yaw_southeast%,+0)
+            ENDIF
+
             wait(1t);
     loop;
- 
-keyup(jump);
-keyup(forward);
+     
+    keyup(jump);
+    keyup(forward);
+    KEYUP(sneak)
+
+ENDUNSAFE

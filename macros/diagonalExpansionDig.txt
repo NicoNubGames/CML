@@ -1,0 +1,129 @@
+// Intended for temporary use in expanding the ice-road between HJE and Rodija
+
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+
+&iter_shovel = "dirt sand gravel clay"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+
+$$<diagonalExpansionDig_identifierBlocks.txt>
+GETID(%#block_x[0]%,%#block_y[0]%,%#block_z[0]%,&right_id)
+GETID(%#block_x[1]%,%#block_y[1]%,%#block_z[1]%,&left_id)
+
+UNSET(left)
+UNSET(right)
+
+IF(%&right_id% == "packed_ice")
+	SET(left)
+ELSEIF(%&left_id% == "packed_ice")
+	SET(right)
+ELSE
+	LOG("Not standing on packed ice diagonal tunnel")
+	STOP
+ENDIF
+
+UNSET(prev_done)
+
+UNSAFE(0)
+DO
+	// Choose correct block position set based on initial orientation
+	IF(left)
+		$$<diagonalExpansionDig_leftBlockPositions.txt>
+	ELSEIF(right)
+		$$<diagonalExpansionDig_rightBlockPositions.txt>
+	ENDIF
+
+	// First, check if any blocks are water or lava
+	FOR(#i,0,5)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+
+		IF((%&id%=="water")||(%&id%=="lava")||(%&id%=="flowing_lava"))
+			KEYUP(forward)
+			KEYUP(right)
+			KEYUP(left)
+			LOG("Water/lava detected")
+			STOP
+		ENDIF
+	NEXT
+
+	// Pick whichever tool is most effective
+    is_pick_block = false
+	FOREACH(&iter_pick,&block)
+		IF(%HITID% == %&block%)
+			is_pick_block = true
+			BREAK
+		ENDIF
+	NEXT
+
+	is_shovel_block = false
+	FOREACH(&iter_shovel,&block)
+		IF(%HITID% == %&block%)
+			is_shovel_block = true
+			BREAK
+		ENDIF
+	NEXT
+
+	IF((%is_pick_block%) && (%ITEM% != "diamond_pickaxe"))
+		PICK("diamond_pickaxe")
+		WAIT(1t)
+	ENDIF
+
+	IF((%is_shovel_block%) && (%ITEM% != "diamond_shovel"))
+		PICK("diamond_shovel")
+		WAIT(1t)
+	ENDIF
+
+	// Stop when durability gets low, for safety
+    IF(((%ITEM% == "diamond_pickaxe") || (%ITEM% == "diamond_shovel")) && (%DURABILITY% <= 50))
+		KEYUP(forward)
+		LOG("Ran out of durability of tool")
+		STOP
+    ENDIF
+
+	// Until blocks 0-2 are air, look at them successively and attack
+	SET(done)
+	FOR(#i,0,2)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+
+		IF(%&id% != "air")
+			LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+			UNSET(done)
+			BREAK
+		ENDIF
+	NEXT
+
+	IF(!done && prev_done)
+		KEYUP(forward)
+		KEYUP(left)
+		KEYUP(right)
+		WAIT(20t)
+	ENDIF
+
+	// If we're done with this layer, walk forward until we're not done
+	IF(done)
+		LOOK(+0,7)
+		KEYDOWN(forward)
+
+		IF(right)
+			KEYDOWN(left)
+		ELSEIF(left)
+			KEYDOWN(right)
+		ENDIF
+
+		KEYDOWN(sneak)
+	ELSE
+		KEY(attack)
+
+		KEYUP(forward)
+		KEYUP(left)
+		KEYUP(right)
+	ENDIF
+
+	$$<eatFood.txt>
+	$$<snapYaw.txt>
+
+	prev_done = done
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE

@@ -1,0 +1,81 @@
+// Will dig a 3-high tunnel, and stop if lava or water is encountered in adjacent blocks
+
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+
+&iter_shovel = "dirt sand gravel clay"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+
+UNSET(@reinforced)
+
+$$<snapYaw.txt>
+
+ECHO("/cto")
+PICK("stone")
+WAIT(5t)
+IF(%ITEM% == "stone")
+	ECHO("/ctf IceRhode")
+	SET(@reinforced)
+ELSE
+	LOG("Ran out of stone")
+ENDIF
+
+#init_yaw = %YAW% + 180
+
+UNSAFE(0)
+DO
+	$$<obbySideDiagonal_blockPositions.txt>
+
+	IF(!%@reinforced%)
+		KEYUP(forward)
+		KEYUP(right)
+		LOG("Ran out of stone")
+		STOP
+	ENDIF
+
+	// Until blocks 0-5 are all obby, look at them successively and place
+	SET(done)
+	FOR(#i,0,5)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "obsidian")
+			LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+			UNSET(done)
+			BREAK
+		ENDIF
+	NEXT
+
+	KEYDOWN(sneak)
+
+	// If we're done with this layer, walk forward until we're not done
+	IF(done)
+		LOOK(%#init_yaw%,+0)
+		KEYDOWN(forward)
+		KEYDOWN(right)
+	ELSE
+		KEYUP(forward)
+		KEYUP(right)
+
+		DO(20)
+			PICK("obsidian")
+			WAIT(2t)
+		UNTIL(%ITEM% == "obsidian")
+
+		IF(%ITEM% != "obsidian")
+			LOG(%ITEM%)
+			KEYUP(forward)
+			KEYUP(right)
+			LOG("Ran out of obsidian")
+			STOP
+		ENDIF
+
+		IF(%ITEM% == "obsidian")
+			KEY(use)
+		ENDIF
+	ENDIF
+
+	$$<eatFood.txt>
+	$$<snapYaw.txt>
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE
