@@ -1,0 +1,525 @@
+// Designed to run fast on ice-roads
+#t = 0
+#turn_cooldown = 4
+#t4 = 4
+
+// Begin instrumentation data section
+#t2 = 0
+#t3 = 0
+&blocks_per_sec = 0
+#blocks_counter = 0
+#pos_x = %XPOS%
+#pos_z = %ZPOS%
+#avg_length = 4
+#avg_length_dec = %#avg_length% - 1
+#total_blocks = 0
+#total_seconds = 0
+FOR(#i,0,%#avg_length_dec%)
+	#blocks_counter[%#i%] = 0
+NEXT
+SETPROPERTY(debug,"colour","orange")
+// End instrumentation data
+
+UNSAFE(0)
+DO
+	IF(%HUNGER% <= 15)
+	    UNSET(found_food)
+
+	    &iter_foods = "apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato"
+	    &iter_foods[] = SPLIT(" ",%&iter_foods%)
+	    FOREACH(&iter_foods,&iter_food)
+	        PICK(%&iter_food%)
+
+	        IF(%ITEM%=%&iter_food%)
+	            SET(found_food)
+	        ENDIF
+	    NEXT
+
+	    IF(%found_food%)
+	        &food_selected = %ITEM%
+
+	        KEYUP(forward)
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(back)
+	        KEYUP(jump)
+
+	        // Eat until hunger is full, or we run out of our food selected
+	        KEY(use)
+	    ELSE
+	    	LOG("&a[icerun]&7 ran out of food")
+	    	STOP
+	    ENDIF
+	ELSE
+		KEYDOWN(forward)
+		SPRINT
+
+		IF(%#t% = 0)
+			KEYDOWN(jump)
+		ELSEIF(%#t% = 1)
+			KEYUP(jump)
+		ENDIF
+	ENDIF
+
+	// Begin instrumentation code section
+    IF(%#pos_x%!=%XPOS%)
+    	#pos_x = %XPOS%
+    	#blocks_counter[%#t3%] = %#blocks_counter[%#t3%]% + 1
+    	INC(#total_blocks)
+    ENDIF
+
+    IF(%#pos_z%!=%ZPOS%)
+    	#pos_z = %ZPOS%
+    	#blocks_counter[%#t3%] = %#blocks_counter[%#t3%]% + 1
+    	INC(#total_blocks)
+    ENDIF
+
+	// Display the current BPS speed (blocks per 20 ticks)
+	DO(60)
+		LOGTO(debug,)
+	LOOP
+	LOGTO(debug,%&blocks_per_sec% m/s)
+	LOGTO(debug,%#total_blocks% blocks)
+
+	#total_minutes = %#total_seconds% / 60
+	#remainder_seconds = %#total_seconds% - %#total_minutes% * 60
+
+	IF(%#total_minutes% == 0)
+		LOGTO(debug,%#total_seconds% seconds)
+	ELSE
+		LOGTO(debug,%#total_minutes% min %#remainder_seconds% sec)
+	ENDIF
+
+	INC(#t2)
+
+	IF(%#t2% >= 20)
+		#t2 = 0
+
+		#div_count = 0
+		#block_sum = 0
+		FOR(#i,0,%#avg_length_dec%)
+			#block_sum = %#block_sum% + %#blocks_counter[%#i%]%
+
+			IF(%#blocks_counter[%#i%]% != 0)
+				INC(#div_count)
+			ENDIF
+		NEXT
+
+		// Divide by 4 and get remainder
+		#integer = %#block_sum% / %#div_count%
+		#remainder = %#block_sum% - %#integer% * #div_count
+
+		IF(%#remainder% = 0)
+			&blocks_per_sec = %#integer%
+		ELSEIF(%#remainder% = 1)
+			&blocks_per_sec = %#integer%.25
+		ELSEIF(%#remainder% = 2)
+			&blocks_per_sec = %#integer%.5
+		ELSEIF(%#remainder% = 3)
+			&blocks_per_sec = %#integer%.75
+		ENDIF
+
+		#blocks_counter = 0
+
+		INC(#t3)
+		INC(#t4)
+		INC(#total_seconds)
+
+		IF(%#t3% >= %#avg_length%)
+			#t3 = 0
+		ENDIF
+
+		#blocks_counter[%#t3%] = 0
+	ENDIF
+	// End instrumentation code
+
+	// Stop if keys W or S are pressed
+    IF(("%KEY_W%" = "True") || ("%KEY_S%" = "True"))
+		KEYUP(forward)
+		KEYUP(jump)
+
+		LOG(&6[icerun]&7 stop (%#total_blocks%b %#total_seconds%s))
+        STOP
+	ENDIF
+
+	INC(#t)
+	IF(%#t% >= 2)
+		#t = 0
+	ENDIF
+
+	#yaw_south = 180
+	#yaw_west = 270
+	#yaw_north = 360
+	#yaw_east = 450
+
+	#yaw_southwest = 225
+	#yaw_northwest = 315
+	#yaw_northeast = 405
+	#yaw_southeast = 495
+
+	#yaw = %YAW% + 180
+	IF((%#yaw% >= 517) || (%#yaw% < 202))
+		LOOK(%#yaw_south%,+0)
+	ELSEIF((%#yaw% >= 202) && (%#yaw% < 247))
+		LOOK(%#yaw_southwest%,+0)
+	ELSEIF((%#yaw% >= 247) && (%#yaw% < 292))
+		LOOK(%#yaw_west%,+0)
+	ELSEIF((%#yaw% >= 292) && (%#yaw% < 337))
+		LOOK(%#yaw_northwest%,+0)
+	ELSEIF((%#yaw% >= 337) && (%#yaw% < 382))
+		LOOK(%#yaw_north%,+0)
+	ELSEIF((%#yaw% >= 382) && (%#yaw% < 427))
+		LOOK(%#yaw_northeast%,+0)
+	ELSEIF((%#yaw% >= 427) && (%#yaw% < 472))
+		LOOK(%#yaw_east%,+0)
+	ELSEIF((%#yaw% >= 472) && (%#yaw% < 517))
+		LOOK(%#yaw_southeast%,+0)
+	ENDIF
+
+	// Handle contextual auto-turning
+	#block_x[0] = (%XPOS% + 0)
+    #block_y[0] = (%YPOS% - 1)
+    #block_z[0] = (%ZPOS% - 1)
+    #block_yaw[0] = 361
+    #block_pitch[0] = 63
+
+    #block_x[1] = (%XPOS% + 0)
+    #block_y[1] = (%YPOS% - 1)
+    #block_z[1] = (%ZPOS% - 2)
+    #block_yaw[1] = 360
+    #block_pitch[1] = 45
+
+    #block_x[2] = (%XPOS% + 0)
+    #block_y[2] = (%YPOS% - 1)
+    #block_z[2] = (%ZPOS% - 3)
+    #block_yaw[2] = 359
+    #block_pitch[2] = 31
+
+    #block_x[3] = (%XPOS% + 1)
+    #block_y[3] = (%YPOS% - 1)
+    #block_z[3] = (%ZPOS% - 1)
+    #block_yaw[3] = 403
+    #block_pitch[3] = 53
+
+    #block_x[4] = (%XPOS% + 2)
+    #block_y[4] = (%YPOS% - 1)
+    #block_z[4] = (%ZPOS% - 2)
+    #block_yaw[4] = 405
+    #block_pitch[4] = 34
+
+    #block_x[5] = (%XPOS% + 3)
+    #block_y[5] = (%YPOS% - 1)
+    #block_z[5] = (%ZPOS% - 3)
+    #block_yaw[5] = 405
+    #block_pitch[5] = 23
+
+    #block_x[6] = (%XPOS% + 1)
+    #block_y[6] = (%YPOS% - 1)
+    #block_z[6] = (%ZPOS% + 0)
+    #block_yaw[6] = 453
+    #block_pitch[6] = 62
+
+    #block_x[7] = (%XPOS% + 2)
+    #block_y[7] = (%YPOS% - 1)
+    #block_z[7] = (%ZPOS% + 0)
+    #block_yaw[7] = 450
+    #block_pitch[7] = 40
+
+    #block_x[8] = (%XPOS% + 3)
+    #block_y[8] = (%YPOS% - 1)
+    #block_z[8] = (%ZPOS% + 0)
+    #block_yaw[8] = 448
+    #block_pitch[8] = 28
+
+    #block_x[9] = (%XPOS% + 1)
+    #block_y[9] = (%YPOS% - 1)
+    #block_z[9] = (%ZPOS% + 1)
+    #block_yaw[9] = 495
+    #block_pitch[9] = 56
+
+    #block_x[10] = (%XPOS% + 2)
+    #block_y[10] = (%YPOS% - 1)
+    #block_z[10] = (%ZPOS% + 2)
+    #block_yaw[10] = 495
+    #block_pitch[10] = 32
+
+    #block_x[11] = (%XPOS% + 3)
+    #block_y[11] = (%YPOS% - 1)
+    #block_z[11] = (%ZPOS% + 3)
+    #block_yaw[11] = 494
+    #block_pitch[11] = 22
+
+    #block_x[12] = (%XPOS% + 0)
+    #block_y[12] = (%YPOS% - 1)
+    #block_z[12] = (%ZPOS% + 1)
+    #block_yaw[12] = 535
+    #block_pitch[12] = 60
+
+    #block_x[13] = (%XPOS% + 0)
+    #block_y[13] = (%YPOS% - 1)
+    #block_z[13] = (%ZPOS% + 2)
+    #block_yaw[13] = 535
+    #block_pitch[13] = 42
+
+    #block_x[14] = (%XPOS% + 0)
+    #block_y[14] = (%YPOS% - 1)
+    #block_z[14] = (%ZPOS% + 3)
+    #block_yaw[14] = 539
+    #block_pitch[14] = 30
+
+    #block_x[15] = (%XPOS% - 1)
+    #block_y[15] = (%YPOS% - 1)
+    #block_z[15] = (%ZPOS% + 1)
+    #block_yaw[15] = 218
+    #block_pitch[15] = 51
+
+    #block_x[16] = (%XPOS% - 2)
+    #block_y[16] = (%YPOS% - 1)
+    #block_z[16] = (%ZPOS% + 2)
+    #block_yaw[16] = 223
+    #block_pitch[16] = 33
+
+    #block_x[17] = (%XPOS% - 3)
+    #block_y[17] = (%YPOS% - 1)
+    #block_z[17] = (%ZPOS% + 3)
+    #block_yaw[17] = 224
+    #block_pitch[17] = 22
+
+    #block_x[18] = (%XPOS% - 1)
+    #block_y[18] = (%YPOS% - 1)
+    #block_z[18] = (%ZPOS% + 0)
+    #block_yaw[18] = 271
+    #block_pitch[18] = 64
+
+    #block_x[19] = (%XPOS% - 2)
+    #block_y[19] = (%YPOS% - 1)
+    #block_z[19] = (%ZPOS% + 0)
+    #block_yaw[19] = 270
+    #block_pitch[19] = 40
+
+    #block_x[20] = (%XPOS% - 3)
+    #block_y[20] = (%YPOS% - 1)
+    #block_z[20] = (%ZPOS% + 0)
+    #block_yaw[20] = 268
+    #block_pitch[20] = 30
+
+    #block_x[21] = (%XPOS% - 1)
+    #block_y[21] = (%YPOS% - 1)
+    #block_z[21] = (%ZPOS% - 1)
+    #block_yaw[21] = 314
+    #block_pitch[21] = 56
+
+    #block_x[22] = (%XPOS% - 2)
+    #block_y[22] = (%YPOS% - 1)
+    #block_z[22] = (%ZPOS% - 2)
+    #block_yaw[22] = 314
+    #block_pitch[22] = 33
+
+    #block_x[23] = (%XPOS% - 3)
+    #block_y[23] = (%YPOS% - 1)
+    #block_z[23] = (%ZPOS% - 3)
+    #block_yaw[23] = 314
+    #block_pitch[23] = 22
+
+    SET(north)
+    FOR(#i,0,2)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(north)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(northeast)
+    FOR(#i,3,5)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(northeast)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(east)
+    FOR(#i,6,8)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(east)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(southeast)
+    FOR(#i,9,11)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(southeast)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(south)
+    FOR(#i,12,14)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(south)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(southwest)
+    FOR(#i,15,17)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(southwest)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(west)
+    FOR(#i,18,20)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(west)
+			BREAK
+		ENDIF
+    NEXT
+
+    SET(northwest)
+    FOR(#i,21,23)
+		GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		IF(%&id% != "packed_ice")
+			UNSET(northwest)
+			BREAK
+		ENDIF
+    NEXT
+
+    GETIDREL(0,-1,0,&standing_block)
+
+    IF((%#t4% >= %#turn_cooldown%) && %&standing_block% == "packed_ice")
+		#yaw = %YAW% + 180
+		IF((%#yaw% >= 517) || (%#yaw% < 202))
+			// going south
+			IF(east)
+				LOOK(%#yaw_east%,+0)
+				#t4 = 0
+			ELSEIF(southeast)
+				LOOK(%#yaw_southeast%,+0)
+				#t4 = 0
+			ELSEIF(southwest)
+				LOOK(%#yaw_southwest%,+0)
+				#t4 = 0
+			ELSEIF(west)
+				LOOK(%#yaw_west%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 202) && (%#yaw% < 247))
+			// southwest
+			IF(southeast)
+				LOOK(%#yaw_southeast%,+0)
+				#t4 = 0
+			ELSEIF(south)
+				LOOK(%#yaw_south%,+0)
+				#t4 = 0
+			ELSEIF(west)
+				LOOK(%#yaw_west%,+0)
+				#t4 = 0
+			ELSEIF(northwest)
+				LOOK(%#yaw_northwest%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 247) && (%#yaw% < 292))
+			// going west
+			IF(south)
+				LOOK(%#yaw_south%,+0)
+				#t4 = 0
+			ELSEIF(southwest)
+				LOOK(%#yaw_southwest%,+0)
+				#t4 = 0
+			ELSEIF(northwest)
+				LOOK(%#yaw_northwest%,+0)
+				#t4 = 0
+			ELSEIF(north)
+				LOOK(%#yaw_north%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 292) && (%#yaw% < 337))
+			// northwest
+			IF(southwest)
+				LOOK(%#yaw_southwest%,+0)
+				#t4 = 0
+			ELSEIF(west)
+				LOOK(%#yaw_west%,+0)
+				#t4 = 0
+			ELSEIF(north)
+				LOOK(%#yaw_north%,+0)
+				#t4 = 0
+			ELSEIF(northeast)
+				LOOK(%#yaw_northeast%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 337) && (%#yaw% < 382))
+			// going north
+			IF(west)
+				LOOK(%#yaw_west%,+0)
+				#t4 = 0
+			ELSEIF(northwest)
+				LOOK(%#yaw_northwest%,+0)
+				#t4 = 0
+			ELSEIF(northeast)
+				LOOK(%#yaw_northeast%,+0)
+				#t4 = 0
+			ELSEIF(east)
+				LOOK(%#yaw_east%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 382) && (%#yaw% < 427))
+			// northeast
+			IF(northwest)
+				LOOK(%#yaw_northwest%,+0)
+				#t4 = 0
+			ELSEIF(north)
+				LOOK(%#yaw_north%,+0)
+				#t4 = 0
+			ELSEIF(east)
+				LOOK(%#yaw_east%,+0)
+				#t4 = 0
+			ELSEIF(southeast)
+				LOOK(%#yaw_southeast%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 427) && (%#yaw% < 472))
+			// going east
+			IF(north)
+				LOOK(%#yaw_north%,+0)
+				#t4 = 0
+			ELSEIF(northeast)
+				LOOK(%#yaw_northeast%,+0)
+				#t4 = 0
+			ELSEIF(southeast)
+				LOOK(%#yaw_southeast%,+0)
+				#t4 = 0
+			ELSEIF(south)
+				LOOK(%#yaw_south%,+0)
+				#t4 = 0
+			ENDIF
+		ELSEIF((%#yaw% >= 472) && (%#yaw% < 517))
+			// southeast
+			IF(northeast)
+				LOOK(%#yaw_northeast%,+0)
+				#t4 = 0
+			ELSEIF(east)
+				LOOK(%#yaw_east%,+0)
+				#t4 = 0
+			ELSEIF(south)
+				LOOK(%#yaw_south%,+0)
+				#t4 = 0
+			ELSEIF(southwest)
+				LOOK(%#yaw_southwest%,+0)
+				#t4 = 0
+			ENDIF
+		ENDIF
+	ENDIF
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE
