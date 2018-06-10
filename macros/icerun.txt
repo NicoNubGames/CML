@@ -56,8 +56,13 @@ DO
 
 		IF(%#t% = 0)
 			KEYDOWN(jump)
-		ELSEIF(%#t% = 1)
+		ELSEIF(%#t% = 2)
 			KEYUP(jump)
+		ENDIF
+
+		INC(#t)
+		IF(%#t% >= 3)
+			#t = 0
 		ENDIF
 	ENDIF
 
@@ -140,11 +145,6 @@ DO
 
 		LOG(&6[icerun]&7 stop (%#total_blocks%b %#total_seconds%s))
         STOP
-	ENDIF
-
-	INC(#t)
-	IF(%#t% >= 2)
-		#t = 0
 	ENDIF
 
 	#yaw_south = 180
