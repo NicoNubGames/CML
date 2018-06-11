@@ -1,0 +1,175 @@
+
+// Setting to talk out-loud about status changes (chests full, need materials, etc.)
+UNSET(@log_to_chat)
+
+IF(@log_to_chat)
+    ECHO("/wc BotMonitor [melon] Start at %DATETIME%")
+ELSE
+    LOG("&a[melon]&7 Start at %DATETIME%")
+ENDIF
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Ensure first check will always say block changed
+#pos_x = %XPOS% - 1
+#pos_z = %ZPOS% - 1
+
+UNSAFE(0)
+DO
+    // Generally hold diamond axe
+    PICK("diamond_axe")
+
+    // If durability is low, stop the script completely (If design constraints allow us to open chests, this could
+    // be expanded to open chests to get new tools)
+
+    IF((%ITEM% == "diamond_axe") && (%DURABILITY% <= 50))
+        KEYUP(forward)
+        IF(@log_to_chat)
+            ECHO("/wc BotMonitor [melon] Ran out of durability at %DATETIME%")
+        ELSE
+            LOG("&a[melon]&7 Ran out of durability at %DATETIME%")
+        ENDIF
+        STOP
+    ENDIF
+
+    // Has our block position changed?
+    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+    
+        // Reset movement timer
+        #movement_timer = 0
+    
+        // Get block standing on
+        GETIDREL(0,-1,0,&standing_block)
+    
+        // Are we standing on cobblestone or stone brick stairs?
+        IF(%&standing_block% = "stone_brick_stairs")
+    
+            KEYUP(forward)
+
+            // Either way, we visually inspect the tile to decode which direction to initially walk
+            LOOK(+0,90)
+            WAIT(1t)
+        
+            IF(%HIT_FACING% = "north")
+                LOOK(%#yaw_north%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "east")
+                LOOK(%#yaw_east%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "south")
+                LOOK(%#yaw_south%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "west")
+                LOOK(%#yaw_west%,%#default_pitch%)
+            ENDIF
+
+            $$<centerSelf.txt>
+        
+            KEYDOWN(forward)
+    
+        // Are we standing on birch stairs?
+        ELSEIF(%&standing_block% = "birch_stairs")
+    
+            // Look towards birch stairs direction
+            KEYUP(forward)
+
+            $$<centerSelf.txt>
+            
+            LOOK(+0,90)
+            WAIT(1t)
+        
+            IF(%HIT_FACING% = "north")
+                LOOK(%#yaw_north%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "east")
+                LOOK(%#yaw_east%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "south")
+                LOOK(%#yaw_south%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "west")
+                LOOK(%#yaw_west%,%#default_pitch%)
+            ENDIF
+
+            WAIT(1t)
+
+            // Throw all melon items in inventory at 45 degree angle
+            // If we can't find a melon block in 1 second, assume our inventory is now empty
+            #melon_find_timer = 0
+            DO
+                LOOK(+0,315)
+                PICK("melon_block")
+                WAIT(1t)
+
+                IF(%ITEM% != "melon_block")
+                    INC(#melon_find_timer)
+                ELSE
+                    #melon_find_timer = 0
+                    KEY(drop)
+                ENDIF
+
+                $$<snapYaw.txt>
+            UNTIL(%#melon_find_timer% >= 20)
+        ENDIF
+
+        // Only save position when we actually have executed a new block
+        #pos_x = %XPOS%
+        #pos_z = %ZPOS%
+
+    ENDIF
+
+    // Unconditionally, if we are facing a melon, attack it (regardless of what else we do)
+    IF(%DIRECTION% = "N")
+        #block_x[0] = (%XPOS% + 0)
+        #block_y[0] = (%YPOS% + 0)
+        #block_z[0] = (%ZPOS% - 1)
+        #block_yaw[0] = 359
+        #block_pitch[0] = 48
+    ELSEIF(%DIRECTION% = "E")
+        #block_x[0] = (%XPOS% + 1)
+        #block_y[0] = (%YPOS% + 0)
+        #block_z[0] = (%ZPOS% + 0)
+        #block_yaw[0] = 449
+        #block_pitch[0] = 48
+    ELSEIF(%DIRECTION% = "S")
+        #block_x[0] = (%XPOS% + 0)
+        #block_y[0] = (%YPOS% + 0)
+        #block_z[0] = (%ZPOS% + 1)
+        #block_yaw[0] = 539
+        #block_pitch[0] = 48
+    ELSEIF(%DIRECTION% = "W")
+        #block_x[0] = (%XPOS% - 1)
+        #block_y[0] = (%YPOS% + 0)
+        #block_z[0] = (%ZPOS% + 0)
+        #block_yaw[0] = 269
+        #block_pitch[0] = 48
+    ENDIF
+
+    GETID(%#block_x[0]%,%#block_y[0]%,%#block_z[0]%,&id)
+
+    IF(%&id% == "melon_block")
+        LOOK(%#block_yaw[0]%,%#block_pitch[0]%)
+        KEY(attack)
+    ENDIF
+
+    // Walk
+    KEYDOWN(forward)
+    
+    // Increment movement timer
+    INC(#movement_timer)
+    
+    // Has our position changed in the past 60 seconds? (excluding external scripts)
+    IF(%#movement_timer%>1200)
+        // Rotate 90 degrees clockwise, if we seem to be stuck
+        LOOKS(+90,%#default_pitch%,.2)
+    ENDIF
+
+    $$<eatFood.txt>
+    $$<snapYaw.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

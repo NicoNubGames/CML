@@ -1,0 +1,115 @@
+// Will remove diagonal pattern of obby
+
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone obsidian"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+
+&iter_shovel = "dirt sand gravel clay"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+
+$$<snapYaw.txt>
+
+#init_yaw = %YAW% + 180
+
+$$<tunnelDiagExpansion_blockPositions.txt>
+
+// Identify whether we're moving forward-left or forward-right, depending on pattern of ice blocks
+GETID(%#block_x[6]%,%#block_y[6]%,%#block_z[6]%,&left_id)
+GETID(%#block_x[7]%,%#block_y[7]%,%#block_z[7]%,&right_id)
+
+IF(%&left_id% != "packed_ice")
+    UNSET(move_left)
+ELSEIF(%&right_id% != "packed_ice")
+    SET(move_left)
+ELSE
+    LOG("Not facing ice tunnel diagonal wall")
+ENDIF
+
+UNSAFE(0)
+DO
+    $$<tunnelDiagExpansion_blockPositions.txt>
+
+    // First, check if any blocks 3-5 are water or lava
+    FOR(#i,3,5)
+        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+
+        IF((%&id%=="water")||(%&id%=="lava")||(%&id%=="flowing_lava"))
+            KEYUP(forward)
+            KEYUP(left)
+            KEYUP(right)
+            LOG("Water/lava detected")
+            STOP
+        ENDIF
+    NEXT
+
+    // Pick whichever tool is most effective
+    is_pick_block = false
+    FOREACH(&iter_pick,&block)
+        IF(%HITID% == %&block%)
+            is_pick_block = true
+            BREAK
+        ENDIF
+    NEXT
+
+    is_shovel_block = false
+    FOREACH(&iter_shovel,&block)
+        IF(%HITID% == %&block%)
+            is_shovel_block = true
+            BREAK
+        ENDIF
+    NEXT
+
+    IF((%is_pick_block%) && (%ITEM% != "diamond_pickaxe"))
+        PICK("diamond_pickaxe")
+        WAIT(1t)
+    ENDIF
+
+    IF((%is_shovel_block%) && (%ITEM% != "diamond_shovel"))
+        PICK("diamond_shovel")
+        WAIT(1t)
+    ENDIF
+
+    // Stop when durability gets low, for safety
+    IF(((%ITEM% == "diamond_pickaxe") || (%ITEM% == "diamond_shovel")) && (%DURABILITY% <= 50))
+        KEYUP(forward)
+        LOG("Ran out of durability of tool")
+        STOP
+    ENDIF
+
+    // Until blocks 0-2 are air or obsidian, look and attack
+    SET(done)
+    FOR(#i,0,2)
+        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+        IF((%&id% != "air") && (%&id% != "obsidian"))
+            LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+            UNSET(done)
+            BREAK
+        ENDIF
+    NEXT
+
+    KEYDOWN(sneak)
+
+    // If we're done with this layer, walk forward until we're not done
+    IF(done)
+        KEYDOWN(forward)
+        IF(move_left)
+            KEYDOWN(left)
+        ELSE
+            KEYDOWN(right)
+        ENDIF
+    ELSE
+        KEY(attack)
+        KEYUP(forward)
+        IF(move_left)
+            KEYUP(left)
+        ELSE
+            KEYUP(right)
+        ENDIF
+
+    ENDIF
+
+    $$<eatFood.txt>
+    $$<snapYaw.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

@@ -1,0 +1,25 @@
+IF(%DIRECTION% = "N")
+    #block_x[0] = (%XPOS% + 0)
+    #block_y[0] = (%YPOS% - 1)
+    #block_z[0] = (%ZPOS% - 1)
+    #block_yaw[0] = 360
+    #block_pitch[0] = 55
+ELSEIF(%DIRECTION% = "E")
+    #block_x[0] = (%XPOS% + 1)
+    #block_y[0] = (%YPOS% - 1)
+    #block_z[0] = (%ZPOS% + 0)
+    #block_yaw[0] = 450
+    #block_pitch[0] = 55
+ELSEIF(%DIRECTION% = "S")
+    #block_x[0] = (%XPOS% + 0)
+    #block_y[0] = (%YPOS% - 1)
+    #block_z[0] = (%ZPOS% + 1)
+    #block_yaw[0] = 180
+    #block_pitch[0] = 55
+ELSEIF(%DIRECTION% = "W")
+    #block_x[0] = (%XPOS% - 1)
+    #block_y[0] = (%YPOS% - 1)
+    #block_z[0] = (%ZPOS% + 0)
+    #block_yaw[0] = 270
+    #block_pitch[0] = 55
+ENDIF
