@@ -1,0 +1,117 @@
+// When light level gets too low, select a torch and place on closest block left or right.
+// If there is no closest block, silently fails.  If runs out of torches, stops script
+
+// Authored by QJI in request of TNTthatsME
+
+// Parameter to control what light level we can tolerate before placing torch
+#minimum_light = 9
+
+#saved_yaw = %YAW% + 180
+
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+&iter_shovel = "dirt sand gravel clay grass"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+
+// Main control loop
+UNSAFE(0)
+DO
+    $$<autoTorchPlacement_blockPositions.txt>
+
+    // If light level is too low, see if blocks exist to place torch on
+
+    IF(%LIGHT% < %#minimum_light%)
+
+	    UNSET(right_block_exists)
+	    FOR(#i,0,3)
+	        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+	        IF(%&id% != "air")
+	        	#saved_yaw = %YAW% + 180
+	            LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+	            SET(right_block_exists)
+	            BREAK
+	        ENDIF
+	    NEXT
+
+	    UNSET(left_block_exists)
+	    IF(!right_block_exists)
+		    UNSET(left_block_exists)
+		    FOR(#i,4,7)
+		        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+		        IF(%&id% != "air")
+		        	#saved_yaw = %YAW% + 180
+		            LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+		            SET(left_block_exists)
+		            BREAK
+		        ENDIF
+		    NEXT
+	    ENDIF
+
+	    IF(right_block_exists || left_block_exists)
+	    	// Blocks exist and we're going to look at them, so do we have torches?
+	    	KEYUP(forward)
+
+	        DO(20)
+	            PICK("torch")
+	            WAIT(1t)
+	        UNTIL(%ITEM% == "torch")
+
+	        IF(%ITEM% == "torch")
+	            KEY(use)
+	        ELSE
+	        	LOG("Ran out of torches")
+	        	STOP
+	        ENDIF
+
+	        WAIT(1t)
+
+	        LOOK(%#saved_yaw%)
+	        KEYDOWN(forward)
+	    ENDIF
+    ENDIF
+
+    // Pick whichever tool is most effective
+    is_pick_block = false
+    FOREACH(&iter_pick,&block)
+        IF(%HITID% == %&block%)
+            is_pick_block = true
+            BREAK
+        ENDIF
+    NEXT
+
+    is_shovel_block = false
+    FOREACH(&iter_shovel,&block)
+        IF(%HITID% == %&block%)
+            is_shovel_block = true
+            BREAK
+        ENDIF
+    NEXT
+
+    IF((%is_pick_block%) && (%ITEM% != "diamond_pickaxe"))
+        PICK("diamond_pickaxe")
+        WAIT(1t)
+    ENDIF
+
+    IF((%is_shovel_block%) && (%ITEM% != "diamond_shovel"))
+        PICK("diamond_shovel")
+        WAIT(1t)
+    ENDIF
+
+    // Stop when durability gets low, for safety
+    IF(((%ITEM% == "diamond_pickaxe") || (%ITEM% == "diamond_shovel")) && (%DURABILITY% <= 50))
+        KEYUP(forward)
+        INVENTORYUP(1)
+        LOG("Ran out of durability of tool")
+        STOP
+    ENDIF
+
+    // If we're looking at a diamond, select up in the inventory to prevent breaking it
+    IF(%HITID% == "diamond_ore")
+    	SLOT(6)
+    ENDIF
+
+    $$<eatFood.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

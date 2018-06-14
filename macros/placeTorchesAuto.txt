@@ -1,0 +1,85 @@
+// Will place torches on wall in head-space every 5 blocks
+
+// Enable reinforcement
+UNSET(@reinforced)
+ECHO("/cto")
+PICK("stone")
+WAIT(5t)
+IF(%ITEM% == "stone")
+    ECHO("/ctf IceRhode")
+    SET(@reinforced)
+ELSE
+    LOG("Ran out of stone")
+ENDIF
+WAIT(5t)
+ECHO("/ctb")
+
+// Save initial yaw
+$$<snapYaw.txt>
+#init_yaw = %YAW% + 180
+
+// Main control loop
+UNSAFE(0)
+DO
+    $$<obbyDiagonalIceroad_blockPositions.txt>
+
+    // Stop if ran out of stone
+    IF(!%@reinforced%)
+        KEYUP(back)
+        LOG("Ran out of stone")
+        STOP
+    ENDIF
+
+    // Look at initial yaw
+    LOOK(%#init_yaw%, +0)
+
+    // If our z-coordinate is on a 5-line, and head-space is not torch, look west and place torch
+    SET(done)
+    #div = %ZPOS% / 5
+    #rem = %ZPOS% - %#div% * 5
+    IF(%#rem% == 0)
+        GETIDREL(0,1,0,&id)
+        IF(%&id% == "air")
+            LOOK(270,0)
+            UNSET(done)
+        ENDIF
+    ELSE
+        GETIDREL(0,1,0,&id)
+        IF(%&id% == "torch")
+            LOG("Extra torch found")
+            LOOK(270,0)
+            KEYUP(forward)
+            KEYUP(jump)
+            STOP
+        ENDIF
+
+    ENDIF
+
+    SPRINT
+    KEYDOWN(jump)
+
+    // If we're done with this layer, walk forward until not done
+    IF(done)
+        KEYDOWN(forward)
+    ELSE
+        KEYUP(forward)
+
+        DO(20)
+            PICK("torch")
+            WAIT(1t)
+        UNTIL(%ITEM% == "torch")
+
+        IF(%ITEM% == "torch")
+            KEY(use)
+        ELSE
+            LOG("Ran out of torches")
+            STOP
+        ENDIF
+    ENDIF
+
+    $$<eatFood.txt>
+    $$<snapYaw.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

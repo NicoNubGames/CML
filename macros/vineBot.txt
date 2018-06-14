@@ -1,0 +1,178 @@
+
+// Setting to talk out-loud about status changes (chests full, need materials, etc.)
+UNSET(@log_to_chat)
+
+IF(@log_to_chat)
+    ECHO("/wc BotMonitor [vine] Start at %DATETIME%")
+ELSE
+    LOG("&a[vine]&7 Start at %DATETIME%")
+ENDIF
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+SET(prev_done)
+#saved_yaw = %YAW% + 180
+
+// Ensure first check will always say block changed
+#pos_x = %XPOS% - 1
+#pos_z = %ZPOS% - 1
+
+UNSAFE(0)
+DO
+    $$<vineBot_blockPositions.txt>
+
+    // Has our block position changed?
+    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+    
+        // Reset movement timer
+        #movement_timer = 0
+    
+        // Get block standing on
+        GETIDREL(0,-1,0,&standing_block)
+    
+        // Are we standing on cobblestone or stone brick stairs?
+        IF(%&standing_block% = "stone_brick_stairs")
+    
+            KEYUP(forward)
+
+            // Either way, we visually inspect the tile to decode which direction to initially walk
+            LOOK(+0,90)
+            WAIT(1t)
+        
+            IF(%HIT_FACING% = "north")
+                LOOK(%#yaw_north%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "east")
+                LOOK(%#yaw_east%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "south")
+                LOOK(%#yaw_south%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "west")
+                LOOK(%#yaw_west%,%#default_pitch%)
+            ENDIF
+
+            $$<centerSelf.txt>
+        
+            KEYDOWN(forward)
+    
+        // Are we standing on birch stairs?
+        ELSEIF(%&standing_block% = "birch_stairs")
+    
+            // Look towards birch stairs direction
+            KEYUP(forward)
+
+            $$<centerSelf.txt>
+            
+            LOOK(+0,90)
+            WAIT(1t)
+        
+            IF(%HIT_FACING% = "north")
+                LOOK(%#yaw_north%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "east")
+                LOOK(%#yaw_east%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "south")
+                LOOK(%#yaw_south%,%#default_pitch%)
+        
+            ELSEIF(%HIT_FACING% = "west")
+                LOOK(%#yaw_west%,%#default_pitch%)
+            ENDIF
+
+            WAIT(1t)
+
+            // Throw all vine items in inventory at 45 degree angle
+            // If we can't find a vine item in 1 second, assume our inventory is now empty
+            #find_timer = 0
+            DO
+                LOOK(+0,315)
+                PICK("vine")
+                WAIT(1t)
+
+                IF(%ITEM% != "vine")
+                    INC(#find_timer)
+                ELSE
+                    #find_timer = 0
+                    KEY(drop)
+                    WAIT(1t)
+                ENDIF
+
+                $$<snapYaw.txt>
+            UNTIL(%#find_timer% >= 20)
+        ENDIF
+
+        // Only save position when we actually have executed a new block
+        #pos_x = %XPOS%
+        #pos_z = %ZPOS%
+
+    ENDIF
+
+    // Until blocks 0-15 are air, look at them successively and attack
+    SET(done)
+    FOR(#i,0,15)
+        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+        IF(%&id% == "vine")
+            LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+            UNSET(done)
+            BREAK
+        ENDIF
+    NEXT
+
+    // If we are just beginning a break-round, save our yaw for later
+    IF(prev_done && done)
+        #saved_yaw = %YAW% + 180
+    ENDIF
+
+    // If we're done with this layer, walk forward until we're not done
+    IF(done)
+        // Look in our original direction
+        LOOK(%#saved_yaw%,%#default_pitch%)
+        WAIT(1t)
+        KEYDOWN(forward)
+    ELSE
+        KEYUP(forward)
+
+        // Generally hold shears
+        IF(%ITEM% != "shears")
+            DO(20)
+                PICK("shears")
+                WAIT(1t)
+            UNTIL(%ITEM% == "shears")
+
+            IF(%ITEM% != "shears")
+                IF(@log_to_chat)
+                    ECHO("/wc BotMonitor [vine] Out of shears at %DATETIME%")
+                ELSE
+                    LOG("&a[vine]&7 Out of shears at %DATETIME%")
+                ENDIF
+                STOP
+            ENDIF
+        ENDIF
+
+        KEY(attack)
+    ENDIF
+
+    SPRINT
+    
+    // Increment movement timer
+    INC(#movement_timer)
+    
+    // Has our position changed in the past 60 seconds? (excluding external scripts)
+    IF(%#movement_timer%>1200)
+        // Rotate 90 degrees clockwise, if we seem to be stuck
+        LOOK(+90,%#default_pitch%)
+    ENDIF
+
+    prev_done = done
+
+    $$<eatFood.txt>
+    $$<snapYaw.txt>
+    $$<centerSelf.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

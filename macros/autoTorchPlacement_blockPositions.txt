@@ -1,0 +1,193 @@
+IF(%DIRECTION% = "N")
+    #block_x[0] = (%XPOS% + 4)
+    #block_y[0] = (%YPOS% + 1)
+    #block_z[0] = (%ZPOS% + 0)
+    #block_yaw[0] = 449
+    #block_pitch[0] = 3
+
+    #block_x[1] = (%XPOS% + 3)
+    #block_y[1] = (%YPOS% + 1)
+    #block_z[1] = (%ZPOS% + 0)
+    #block_yaw[1] = 449
+    #block_pitch[1] = 2
+
+    #block_x[2] = (%XPOS% + 2)
+    #block_y[2] = (%YPOS% + 1)
+    #block_z[2] = (%ZPOS% + 0)
+    #block_yaw[2] = 449
+    #block_pitch[2] = 2
+
+    #block_x[3] = (%XPOS% + 1)
+    #block_y[3] = (%YPOS% + 1)
+    #block_z[3] = (%ZPOS% + 0)
+    #block_yaw[3] = 449
+    #block_pitch[3] = 5
+
+    #block_x[4] = (%XPOS% - 4)
+    #block_y[4] = (%YPOS% + 1)
+    #block_z[4] = (%ZPOS% + 0)
+    #block_yaw[4] = 269
+    #block_pitch[4] = 3
+
+    #block_x[5] = (%XPOS% - 3)
+    #block_y[5] = (%YPOS% + 1)
+    #block_z[5] = (%ZPOS% + 0)
+    #block_yaw[5] = 269
+    #block_pitch[5] = 3
+
+    #block_x[6] = (%XPOS% - 2)
+    #block_y[6] = (%YPOS% + 1)
+    #block_z[6] = (%ZPOS% + 0)
+    #block_yaw[6] = 269
+    #block_pitch[6] = 2
+
+    #block_x[7] = (%XPOS% - 1)
+    #block_y[7] = (%YPOS% + 1)
+    #block_z[7] = (%ZPOS% + 0)
+    #block_yaw[7] = 269
+    #block_pitch[7] = 2
+ELSEIF(%DIRECTION% = "E")
+    #block_x[0] = (%XPOS% + 0)
+    #block_y[0] = (%YPOS% + 1)
+    #block_z[0] = (%ZPOS% + 4)
+    #block_yaw[0] = 539
+    #block_pitch[0] = 3
+
+    #block_x[1] = (%XPOS% + 0)
+    #block_y[1] = (%YPOS% + 1)
+    #block_z[1] = (%ZPOS% + 3)
+    #block_yaw[1] = 539
+    #block_pitch[1] = 2
+
+    #block_x[2] = (%XPOS% + 0)
+    #block_y[2] = (%YPOS% + 1)
+    #block_z[2] = (%ZPOS% + 2)
+    #block_yaw[2] = 539
+    #block_pitch[2] = 2
+
+    #block_x[3] = (%XPOS% + 0)
+    #block_y[3] = (%YPOS% + 1)
+    #block_z[3] = (%ZPOS% + 1)
+    #block_yaw[3] = 539
+    #block_pitch[3] = 5
+
+    #block_x[4] = (%XPOS% + 0)
+    #block_y[4] = (%YPOS% + 1)
+    #block_z[4] = (%ZPOS% - 4)
+    #block_yaw[4] = 359
+    #block_pitch[4] = 3
+
+    #block_x[5] = (%XPOS% + 0)
+    #block_y[5] = (%YPOS% + 1)
+    #block_z[5] = (%ZPOS% - 3)
+    #block_yaw[5] = 359
+    #block_pitch[5] = 3
+
+    #block_x[6] = (%XPOS% + 0)
+    #block_y[6] = (%YPOS% + 1)
+    #block_z[6] = (%ZPOS% - 2)
+    #block_yaw[6] = 359
+    #block_pitch[6] = 2
+
+    #block_x[7] = (%XPOS% + 0)
+    #block_y[7] = (%YPOS% + 1)
+    #block_z[7] = (%ZPOS% - 1)
+    #block_yaw[7] = 359
+    #block_pitch[7] = 2
+ELSEIF(%DIRECTION% = "S")
+    #block_x[0] = (%XPOS% - 4)
+    #block_y[0] = (%YPOS% + 1)
+    #block_z[0] = (%ZPOS% + 0)
+    #block_yaw[0] = 269
+    #block_pitch[0] = 3
+
+    #block_x[1] = (%XPOS% - 3)
+    #block_y[1] = (%YPOS% + 1)
+    #block_z[1] = (%ZPOS% + 0)
+    #block_yaw[1] = 269
+    #block_pitch[1] = 2
+
+    #block_x[2] = (%XPOS% - 2)
+    #block_y[2] = (%YPOS% + 1)
+    #block_z[2] = (%ZPOS% + 0)
+    #block_yaw[2] = 269
+    #block_pitch[2] = 2
+
+    #block_x[3] = (%XPOS% - 1)
+    #block_y[3] = (%YPOS% + 1)
+    #block_z[3] = (%ZPOS% + 0)
+    #block_yaw[3] = 269
+    #block_pitch[3] = 5
+
+    #block_x[4] = (%XPOS% + 4)
+    #block_y[4] = (%YPOS% + 1)
+    #block_z[4] = (%ZPOS% + 0)
+    #block_yaw[4] = 449
+    #block_pitch[4] = 3
+
+    #block_x[5] = (%XPOS% + 3)
+    #block_y[5] = (%YPOS% + 1)
+    #block_z[5] = (%ZPOS% + 0)
+    #block_yaw[5] = 449
+    #block_pitch[5] = 3
+
+    #block_x[6] = (%XPOS% + 2)
+    #block_y[6] = (%YPOS% + 1)
+    #block_z[6] = (%ZPOS% + 0)
+    #block_yaw[6] = 449
+    #block_pitch[6] = 2
+
+    #block_x[7] = (%XPOS% + 1)
+    #block_y[7] = (%YPOS% + 1)
+    #block_z[7] = (%ZPOS% + 0)
+    #block_yaw[7] = 449
+    #block_pitch[7] = 2
+ELSEIF(%DIRECTION% = "W")
+    #block_x[0] = (%XPOS% + 0)
+    #block_y[0] = (%YPOS% + 1)
+    #block_z[0] = (%ZPOS% - 4)
+    #block_yaw[0] = 359
+    #block_pitch[0] = 3
+
+    #block_x[1] = (%XPOS% + 0)
+    #block_y[1] = (%YPOS% + 1)
+    #block_z[1] = (%ZPOS% - 3)
+    #block_yaw[1] = 359
+    #block_pitch[1] = 2
+
+    #block_x[2] = (%XPOS% + 0)
+    #block_y[2] = (%YPOS% + 1)
+    #block_z[2] = (%ZPOS% - 2)
+    #block_yaw[2] = 359
+    #block_pitch[2] = 2
+
+    #block_x[3] = (%XPOS% + 0)
+    #block_y[3] = (%YPOS% + 1)
+    #block_z[3] = (%ZPOS% - 1)
+    #block_yaw[3] = 359
+    #block_pitch[3] = 5
+
+    #block_x[4] = (%XPOS% + 0)
+    #block_y[4] = (%YPOS% + 1)
+    #block_z[4] = (%ZPOS% + 4)
+    #block_yaw[4] = 539
+    #block_pitch[4] = 3
+
+    #block_x[5] = (%XPOS% + 0)
+    #block_y[5] = (%YPOS% + 1)
+    #block_z[5] = (%ZPOS% + 3)
+    #block_yaw[5] = 539
+    #block_pitch[5] = 3
+
+    #block_x[6] = (%XPOS% + 0)
+    #block_y[6] = (%YPOS% + 1)
+    #block_z[6] = (%ZPOS% + 2)
+    #block_yaw[6] = 539
+    #block_pitch[6] = 2
+
+    #block_x[7] = (%XPOS% + 0)
+    #block_y[7] = (%YPOS% + 1)
+    #block_z[7] = (%ZPOS% + 1)
+    #block_yaw[7] = 539
+    #block_pitch[7] = 2
+ENDIF

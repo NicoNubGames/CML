@@ -1,0 +1,95 @@
+// Will place diagonal obby walls on both sides
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone obsidian"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+&iter_shovel = "dirt sand gravel clay"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+
+// Enable reinforcement
+UNSET(@reinforced)
+ECHO("/cto")
+PICK("stone")
+WAIT(5t)
+IF(%ITEM% == "stone")
+    ECHO("/ctf IceRhode")
+    SET(@reinforced)
+ELSE
+    LOG("Ran out of stone")
+ENDIF
+
+// Save initial yaw
+$$<snapYaw.txt>
+#init_yaw = %YAW% + 180
+
+// Identify whether we're moving forward-left or forward-right, depending on pattern of ice blocks
+$$<obbyDiagonalIceroad_blockPositions.txt>
+GETID(%#block_x[4]%,%#block_y[4]%,%#block_z[4]%,&left_id)
+GETID(%#block_x[5]%,%#block_y[5]%,%#block_z[5]%,&right_id)
+IF(%&left_id% != "packed_ice")
+    UNSET(move_left)
+ELSEIF(%&right_id% != "packed_ice")
+    SET(move_left)
+ELSE
+    LOG("Not facing obsidian diagonal wall")
+ENDIF
+
+// Main control loop
+UNSAFE(0)
+DO
+    $$<obbyDiagonalIceroad_blockPositions.txt>
+
+    // Stop if ran out of stone
+    IF(!%@reinforced%)
+        KEYUP(back)
+        LOG("Ran out of stone")
+        STOP
+    ENDIF
+
+    // Look at initial yaw
+    LOOK(%#init_yaw%, +0)
+
+    // Until blocks 0-3 are air, look at them successively and place
+    SET(done)
+    FOR(#i,0,3)
+        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+        IF(%&id% == "air")
+            LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+            UNSET(done)
+            BREAK
+        ENDIF
+    NEXT
+
+    KEYDOWN(sneak)
+
+    // If we're done with this layer, walk diagonally until we're not done
+
+    IF(done)
+        KEYDOWN(forward)
+        IF(move_left)
+            KEYDOWN(left)
+        ELSE
+            KEYDOWN(right)
+        ENDIF
+    ELSE
+        KEYUP(forward)
+        IF(move_left)
+            KEYUP(left)
+        ELSE
+            KEYUP(right)
+        ENDIF
+
+        DO(100)
+            PICK("obsidian")
+            WAIT(1t)
+        UNTIL(%ITEM% == "obsidian")
+
+        IF(%ITEM% == "obsidian")
+            KEY(use)
+        ENDIF
+    ENDIF
+
+    $$<eatFood.txt>
+    $$<snapYaw.txt>
+
+    WAIT(3t)
+LOOP
+ENDUNSAFE

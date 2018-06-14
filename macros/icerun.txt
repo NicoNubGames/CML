@@ -3,6 +3,9 @@
 #turn_cooldown = 4
 #t4 = 4
 
+// Option to display speedometer (off by default)
+UNSET(display_speedometer)
+
 // Begin instrumentation data section
 #t2 = 0
 #t3 = 0
@@ -80,19 +83,21 @@ DO
     ENDIF
 
 	// Display the current BPS speed (blocks per 20 ticks)
-	DO(60)
-		LOGTO(debug,)
-	LOOP
-	LOGTO(debug,%&blocks_per_sec% m/s)
-	LOGTO(debug,%#total_blocks% blocks)
+	IF(display_speedometer)
+		DO(60)
+			LOGTO(debug,)
+		LOOP
+		LOGTO(debug,%&blocks_per_sec% m/s)
+		LOGTO(debug,%#total_blocks% blocks)
 
-	#total_minutes = %#total_seconds% / 60
-	#remainder_seconds = %#total_seconds% - %#total_minutes% * 60
+		#total_minutes = %#total_seconds% / 60
+		#remainder_seconds = %#total_seconds% - %#total_minutes% * 60
 
-	IF(%#total_minutes% == 0)
-		LOGTO(debug,%#total_seconds% seconds)
-	ELSE
-		LOGTO(debug,%#total_minutes% min %#remainder_seconds% sec)
+		IF(%#total_minutes% == 0)
+			LOGTO(debug,%#total_seconds% seconds)
+		ELSE
+			LOGTO(debug,%#total_minutes% min %#remainder_seconds% sec)
+		ENDIF
 	ENDIF
 
 	INC(#t2)
