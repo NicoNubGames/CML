@@ -1,0 +1,75 @@
+// Book-keeping script for Rhodesia's XP mats room
+
+#correct_xpos = -9399
+#correct_zpos = 8600
+
+$$<matsLogger_blockPositions.txt>
+
+IF((%XPOS% != %#correct_xpos%) || (%ZPOS% != %#correct_zpos%))
+	LOG("&a[mats]&7 Not in correct spot")
+	STOP
+ENDIF
+
+FOR(#i,0,10)
+	#mats[%#i%] = 0
+NEXT
+
+#saved_yaw = %YAW% + 180
+#saved_pitch = %PITCH%
+
+LOGTO(mats.txt,[mats] %DATETIME%)
+
+UNSAFE(0)
+FOR(#i,0,10)
+    GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+    IF((%&id% == "chest") || (%&id% == "trapped_chest"))
+        LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+        WAIT(1t)
+        DO(20)
+        	KEY(use)
+        	WAIT(1t)
+        UNTIL(%GUI% == "GUICHEST")
+        IF(%GUI% != "GUICHEST")
+        	LOG("&a[mats]&7 Chest did not open")
+        	STOP
+        ENDIF
+
+        // Loop through chest and count how many items are not air
+        FOR(#j,0,53)
+        	GETSLOTITEM(%#j%,&item,#size)
+
+        	IF(%&item% != "air")
+        		#mats[%#i%] = %#mats[%#i%]% + %#size%
+        	ENDIF
+        NEXT
+
+        LOGTO(mats.txt,%#mats[%#i%]%)
+
+        DO(20)
+        	GUI
+        	WAIT(1t)
+        UNTIL(%GUI% = "NONE")
+
+        IF(%GUI% != "NONE")
+        	LOG("&a[mats]&7 Chest did not close")
+        	STOP
+        ENDIF
+    ELSE
+        LOG("&a[mats]&7 Couldn't find expected chest (%&id%)")
+        STOP
+    ENDIF
+    WAIT(3t)
+NEXT
+
+DO(20)
+	GUI
+	WAIT(1t)
+UNTIL(%GUI% = "NONE")
+
+IF(%GUI% != "NONE")
+	LOG("&a[mats]&7 Chest did not close")
+	STOP
+ENDIF
+
+LOOK(%#saved_yaw%,%#saved_pitch%)
+ENDUNSAFE

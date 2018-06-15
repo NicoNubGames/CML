@@ -10,10 +10,21 @@ $$<snapYaw.txt>
 SET(prev_done)
 #saved_yaw = %YAW% + 180
 
+// Ensure first check will always say block changed
+#pos_x = %XPOS% - 1
+#pos_z = %ZPOS% - 1
+
+$$<autoDig_blockPositions.txt>
+
 // Main control loop
 UNSAFE(0)
 DO
-    $$<autoDig_blockPositions.txt>
+    // If we're in a new block, update our block positions
+    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+        #pos_x = %XPOS%
+        #pos_z = %ZPOS%
+        $$<autoDig_blockPositions.txt>
+    ENDIF
 
     // Until blocks 0-95 are air, look at them successively and attack
     SET(done)
@@ -69,6 +80,55 @@ DO
 
     // If we're done with this layer, walk forward until we're not done
     IF(done)
+        // If we're done, and the block in front of us is air, attempt to make a block in front of us (bridge)
+        IF(%DIRECTION% = "N")
+            #block_x[100] = (%XPOS% + 0)
+            #block_y[100] = (%YPOS% - 1)
+            #block_z[100] = (%ZPOS% - 1)
+            #block_yaw[100] = 358
+            #block_pitch[100] = 59
+        ELSEIF(%DIRECTION% = "E")
+            #block_x[100] = (%XPOS% + 1)
+            #block_y[100] = (%YPOS% - 1)
+            #block_z[100] = (%ZPOS% + 0)
+            #block_yaw[100] = 448
+            #block_pitch[100] = 59
+        ELSEIF(%DIRECTION% = "S")
+            #block_x[100] = (%XPOS% + 0)
+            #block_y[100] = (%YPOS% - 1)
+            #block_z[100] = (%ZPOS% + 1)
+            #block_yaw[100] = 538
+            #block_pitch[100] = 59
+        ELSEIF(%DIRECTION% = "W")
+            #block_x[100] = (%XPOS% - 1)
+            #block_y[100] = (%YPOS% - 1)
+            #block_z[100] = (%ZPOS% + 0)
+            #block_yaw[100] = 268
+            #block_pitch[100] = 59
+        ENDIF
+
+        GETID(%#block_x[100]%,%#block_y[100]%,%#block_z[100]%,&id)
+
+        IF(%&id% == "air")
+            LOOK(%#saved_yaw%,8)
+            PICK("cobblestone")
+            KEYDOWN(sneak)
+            KEYDOWN(forward)
+            WAIT(20t)
+            KEYUP(forward)
+            KEYDOWN(back)
+            WAIT(2t)
+            KEYUP(back)
+            KEYUP(sneak)
+            WAIT(1t)
+            LOOK(+180,83)
+            WAIT(1t)
+            KEY(use)
+            WAIT(1t)
+            LOOK(%#saved_yaw%,8)
+            WAIT(1t)
+        ENDIF
+
         // Look in our original direction
         LOOK(%#saved_yaw%,+0)
         KEYDOWN(forward)

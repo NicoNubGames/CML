@@ -44,7 +44,7 @@ Gui, Show, x%X% y%Y% NoActivate
 
 If (!WinExist("Minecraft"))
 {
-	Run %A_AHKPath% "mc_start.ahk"
+	Run C:\Shared\CML\utilities\macromod_helper\mc_start.ahk, C:\Shared\CML\utilities\macromod_helper
 }
 
 ensure_focus:

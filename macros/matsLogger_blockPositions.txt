@@ -1,0 +1,65 @@
+#block_x[0] = (%XPOS% + 3)
+#block_y[0] = (%YPOS% + 1)
+#block_z[0] = (%ZPOS% + 0)
+#block_yaw[0] = 449
+#block_pitch[0] = 4
+
+#block_x[1] = (%XPOS% + 3)
+#block_y[1] = (%YPOS% + 1)
+#block_z[1] = (%ZPOS% + 2)
+#block_yaw[1] = 486
+#block_pitch[1] = 3
+
+#block_x[2] = (%XPOS% + 2)
+#block_y[2] = (%YPOS% + 1)
+#block_z[2] = (%ZPOS% + 3)
+#block_yaw[2] = 503
+#block_pitch[2] = 8
+
+#block_x[3] = (%XPOS% + 1)
+#block_y[3] = (%YPOS% + 1)
+#block_z[3] = (%ZPOS% + 3)
+#block_yaw[3] = 519
+#block_pitch[3] = 3
+
+#block_x[4] = (%XPOS% - 1)
+#block_y[4] = (%YPOS% + 1)
+#block_z[4] = (%ZPOS% + 3)
+#block_yaw[4] = 201
+#block_pitch[4] = 3
+
+#block_x[5] = (%XPOS% - 3)
+#block_y[5] = (%YPOS% + 1)
+#block_z[5] = (%ZPOS% + 3)
+#block_yaw[5] = 229
+#block_pitch[5] = 1
+
+#block_x[6] = (%XPOS% + 3)
+#block_y[6] = (%YPOS% + 0)
+#block_z[6] = (%ZPOS% + 0)
+#block_yaw[6] = 449
+#block_pitch[6] = 22
+
+#block_x[7] = (%XPOS% + 3)
+#block_y[7] = (%YPOS% + 0)
+#block_z[7] = (%ZPOS% + 2)
+#block_yaw[7] = 487
+#block_pitch[7] = 17
+
+#block_x[8] = (%XPOS% + 2)
+#block_y[8] = (%YPOS% + 0)
+#block_z[8] = (%ZPOS% + 3)
+#block_yaw[8] = 504
+#block_pitch[8] = 13
+
+#block_x[9] = (%XPOS% + 1)
+#block_y[9] = (%YPOS% + 0)
+#block_z[9] = (%ZPOS% + 3)
+#block_yaw[9] = 519
+#block_pitch[9] = 22
+
+#block_x[10] = (%XPOS% - 1)
+#block_y[10] = (%YPOS% + 0)
+#block_z[10] = (%ZPOS% + 3)
+#block_yaw[10] = 200
+#block_pitch[10] = 21

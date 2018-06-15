@@ -8,10 +8,10 @@ If !WinExist("Minecraft")
 	X := ""
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, playbutton.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, img/playbutton.png
 		If (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, playbutton2.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, img/playbutton2.png
 		}
 		Sleep, 100
 	}
@@ -23,10 +23,10 @@ If !WinExist("Minecraft")
 	X := ""
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, multiplayer.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, img/multiplayer.png
 		If (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, multiplayer2.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, img/multiplayer2.png
 		}
 		Sleep, 100
 	}
@@ -38,7 +38,7 @@ If !WinExist("Minecraft")
 	X := ""
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, autojoin.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, img/autojoin.png
 		Sleep, 100
 	}
 	

@@ -1,0 +1,140 @@
+// Will break sand and protect durability
+
+&iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone stained_hardened_clay hardened_clay"
+&iter_pick[] = SPLIT(" ",%&iter_pick%)
+&iter_shovel = "dirt sand gravel clay"
+&iter_shovel[] = SPLIT(" ",%&iter_shovel%)
+UNSET(@working)
+UNSET(digdown)
+$$<snapYaw.txt>
+
+SET(prev_done)
+#saved_yaw = %YAW% + 180
+
+// Ensure first check will always say block changed
+#pos_x = %XPOS% - 1
+#pos_z = %ZPOS% - 1
+
+$$<autoDig_blockPositions.txt>
+
+// Main control loop
+UNSAFE(0)
+DO
+    // If we're in a new block, update our block positions
+    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+        #pos_x = %XPOS%
+        #pos_z = %ZPOS%
+        $$<autoDig_blockPositions.txt>
+    ENDIF
+
+    if(@working);
+        $$<autoDig_blockPositions.txt>
+
+        // Until blocks 0-95 are air, look at them successively and attack
+        SET(done)
+        FOR(#i,0,95)
+            GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+            IF(%&id% != "air")
+                LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+                UNSET(done)
+                BREAK
+            ENDIF
+        NEXT
+    
+        // Pick whichever tool is most effective
+        is_pick_block = false
+        FOREACH(&iter_pick,&block)
+            IF(%HITID% == %&block%)
+                is_pick_block = true
+                BREAK
+            ENDIF
+        NEXT
+
+        is_shovel_block = false
+        FOREACH(&iter_shovel,&block)
+            IF(%HITID% == %&block%)
+                is_shovel_block = true
+                BREAK
+            ENDIF
+        NEXT
+
+        IF((%is_pick_block%) && (%ITEM% != "diamond_pickaxe"))
+            PICK("diamond_pickaxe")
+            WAIT(1t)
+        ENDIF
+
+        IF((%is_shovel_block%) && (%ITEM% != "diamond_shovel"))
+            PICK("diamond_shovel")
+            WAIT(1t)
+        ENDIF
+
+        // Stop when durability gets low, for safety
+        IF(((%ITEM% == "diamond_pickaxe") || (%ITEM% == "diamond_shovel")) && (%DURABILITY% <= 30))
+            KEYUP(forward)
+            LOG("Ran out of durability of tool")
+            UNSET(@working);
+        ENDIF
+
+        // If we are just beginning a break-round, save our yaw for later
+        IF(prev_done && done)
+            #saved_yaw = %YAW% + 180
+        ENDIF
+
+        SPRINT
+
+        // If we're done with this layer, walk forward until we're not done
+        IF(done)
+            // Look in our original direction
+            LOOK(%#saved_yaw%,+0)
+            KEYDOWN(forward)
+        ELSE
+            KEY(attack)
+            KEYUP(forward)
+        ENDIF
+
+        prev_done = done
+
+        //Checks Food
+        if(%HUNGER% < 17)
+        slot(9);
+            do();
+                key(use);
+                until(%HUNGER% > 19);
+            endif();
+        $$<centerSelf.txt>
+
+        WAIT(1t)
+        
+        //XPOS triggers a crack backwards
+        if(%XPOS% < -9973);
+            SET(digdown);
+            UNSET(@working);
+        endif;
+    
+    //Cracks backwards
+    else
+        if(%XPOS% < -9760);
+            look(270,0);
+            keyup(forward);
+            do
+            if(@working);
+                break;
+            endif;
+            keydown(back);
+            until(%XPOS% = -9760);
+            keyup(back);
+            
+            //Digdown is crack is triggered by the end of the segment
+            if((%XPOS% = -9760) && (digdown));
+                #ychange = %YPOS% - 2;
+                UNSET(digdown);
+                look(270,90);
+                do();
+                    key(attack);
+                until(%YPOS%=%#ychange%);
+                SET(@working);
+            endif;
+        endif;
+    endif;
+LOOP
+ENDUNSAFE
