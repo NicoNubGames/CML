@@ -1,0 +1,21 @@
+echo(/gc botmonitor Vine bot started at %XPOS% %ZPOS% on %DATE% %TIME%)
+set(@paranoid)
+
+if(%XPOS% = -12590)
+    log(Vine mode.);
+    pick(shears)
+    do
+        
+        
+        random(#target,360,1)
+        look(+%#target%,0);
+        wait(1s);
+        do(20);
+            key(attack);
+        loop;
+        pick(shears)
+        wait(1000ms)
+        
+
+    until(%ITEM% != "shears")
+endif
