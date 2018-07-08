@@ -1,0 +1,45 @@
+#max_z = -3658
+#min_z = -3730
+
+#max_x = -11046
+#min_x = -11126
+
+c1 = (%XPOS% == %#min_x%) && (%ZPOS% == %#min_z%)
+
+#modulo_arg_1 = %ZPOS% - %#max_z%
+#modulo_arg_2 = 8
+#div = %#modulo_arg_1% / %#modulo_arg_2%
+#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+c2 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+#modulo_arg_1 = %ZPOS% - %#max_z% - 4
+#modulo_arg_2 = 8
+#div = %#modulo_arg_1% / %#modulo_arg_2%
+#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+c3 = (%XPOS% == %#max_x%) && (%#rem% == 0)
+
+#modulo_arg_1 = %ZPOS% - %#max_z% - 4
+#modulo_arg_2 = 8
+#div = %#modulo_arg_1% / %#modulo_arg_2%
+#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+c4 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+#modulo_arg_1 = %ZPOS% - %#max_z%
+#modulo_arg_2 = 8
+#div = %#modulo_arg_1% / %#modulo_arg_2%
+#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+c5 = (%XPOS% == %#max_x%) && (%#rem% == 0)
+
+#modulo_arg_1 = %ZPOS% - %#max_z% - 2
+#modulo_arg_2 = 8
+#div = %#modulo_arg_1% / %#modulo_arg_2%
+#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+c6 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+LOG(%DATETIME%)
+LOG(c1: %c1%)
+LOG(c2: %c2%)
+LOG(c3: %c3%)
+LOG(c4: %c4%)
+LOG(c5: %c5%)
+LOG(c6: %c6%)

@@ -1,0 +1,213 @@
+
+// Specify hardcoded cam vectors
+#zombie_yaw = 484
+#zombie_pitch = 354
+#hopper_yaw = 495
+#hopper_pitch = 4
+#chest_yaw = 537
+#chest_pitch = 34
+
+// Currently (240), transfer items from hopper to chest every 2 minutes
+#iterations_wait_item_transfer = 240
+
+// Time to wait for hopper to open in ticks
+#hopper_wait_time = 100
+
+// Time to wait for hopper to close inventory
+#hopper_close_time = 100
+
+// Time to wait for chest to open in ticks
+#chest_wait_time = 100
+
+// Time to wait for chest to close inventory
+#chest_close_time = 100
+
+// Time to wait between each item movement action
+#item_movement_time = 10
+
+
+// This script will slay zombies with looting swords at a prespecified vector, avoid breaking swords
+// as necessary, occasionally move items from a hopper to a chest, and eat.  As well, we will log out in
+// the following conditions:
+
+// Disconnect on running out of swords
+// Disconnect on position change
+// Disconnect on taking damage
+// Disconnect if chest is full
+// Disconnect if hopper doesn't open
+// Disconnect if chest doesn't open
+// Disconnect if hopper doesn't close
+// Disconnect if chest doesn't close
+
+// On every disconnect, we will also log to a file.  As well, we will log to a file on every successful
+// change of sword, as well as every hopper/chest switchover.
+
+
+// Save position
+#x = %XPOS%
+#y = %YPOS%
+#z = %ZPOS%
+
+// If health isn't 20, stop and warn the user
+IF(%HEALTH% != 20)
+	LOG("")
+	LOG("")
+	LOG("")
+	LOG("&f        ERROR: HEAL YOURSELF AND TRY AGAIN")
+	LOG("&cHealth is not at maximum, so the bot would disconnect immediately for safety (aren't you glad I noticed?)")
+	LOG("&cHeal yourself and then try running this script again")
+	STOP
+ENDIF
+
+// We will increment slots on durability condition until there is not a diamond sword.
+#current_sword_slot = 1
+#t = 0
+
+UNSAFE(0)
+DO
+	// Check for y-level change disconnect condition
+	IF((%XPOS% != %#x%) || (%YPOS% != %#y%) || (%ZPOS% != %#z%))
+		LOG("[zomb] %DATETIME% Disconnected due to position change")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to position change")
+		DISCONNECT()
+	ENDIF
+
+	// Check for health disconnect condition
+	IF(%HEALTH% < 20)
+		LOG("[zomb] %DATETIME% Disconnected due to taking damage!!!")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to taking damage!!!")
+		DISCONNECT
+	ENDIF
+
+	// Handle durability change
+	IF((%ITEM% == "diamond_sword") && (%DURABILITY% <= 4))
+		LOG("[zomb] %DATETIME% Notice: Changing out sword")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Notice: Changing out sword")
+
+		INC(#current_sword_slot)
+	ENDIF
+
+	IF(%SLOT% != %#current_sword_slot%)
+		SLOT(%#current_sword_slot%)
+	ELSE
+		// If we currently selected a sword slot, but there is no sword, we ran out
+		IF(%ITEM% != "diamond_sword")
+			LOG("[zomb] %DATETIME% Disconnected due to no swords left")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to no swords left")
+			DISCONNECT()
+		ENDIF
+	ENDIF
+
+	// Set waiting bar for item-transfer operation
+	@#progress = (%#t% * 100) / %#iterations_wait_item_transfer%
+
+	LOOK(%#zombie_yaw%,%#zombie_pitch%)
+
+	IF(%#t% >= %#iterations_wait_item_transfer%)
+		LOG("[zomb] %DATETIME% Notice: Doing item switchover")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Notice: Doing item switchover")
+
+		LOOK(%#hopper_yaw%,%#hopper_pitch%)
+		WAIT(1t)
+
+		KEY(use)
+
+		DO(%#hopper_wait_time%)
+			WAIT(1t)
+		UNTIL(%GUI% == "GUIHOPPER")
+
+		IF(%GUI% != "GUIHOPPER")
+			LOG("[zomb] %DATETIME% Disconnected due to hopper not opening")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not opening")
+			DISCONNECT()
+		ENDIF
+
+		// Loop through all hopper items and take them
+		FOR(#i,0,4)
+			GETSLOTITEM(%#i%,&id)
+
+			IF(%&id% != "air")
+				SLOTCLICK(%#i%,L,1)
+				WAIT(%#item_movement_time%t)
+			ENDIF
+		NEXT
+
+		// Attempt to close hopper storage
+		DO(%#hopper_close_time%)
+			GUI
+			WAIT(1t)
+		UNTIL(%GUI% = "NONE")
+
+		IF(%GUI% != "NONE")
+			LOG("[zomb] %DATETIME% Disconnected due to hopper not closing")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not closing")
+			DISCONNECT()
+		ENDIF
+
+		LOOK(%#chest_yaw%,%#chest_pitch%)
+		WAIT(1t)
+
+		KEY(use)
+
+		DO(%#chest_wait_time%)
+			WAIT(1t)
+		UNTIL(%GUI% == "GUICHEST")
+
+		IF(%GUI% != "GUICHEST")
+			LOG("[zomb] %DATETIME% Disconnected due to chest not opening")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not opening")
+			DISCONNECT()
+		ENDIF
+
+		// Loop through inventory and put all items that aren't diamond swords or baked potatoes
+		// We assume the chest is a double chest.
+		FOR(#i,54,89)
+			GETSLOTITEM(%#i%,&id)
+
+			IF((%&id% != "air") && (%&id% != "diamond_sword") && (%&id% != "baked_potato"))
+				SLOTCLICK(%#i%,L,1)
+				WAIT(%#item_movement_time%t)
+			ENDIF
+		NEXT
+
+		// Loop through inventory once more.  If any remain, the chest was probably full
+		UNSET(chest_full)
+		FOR(#i,54,89)
+			GETSLOTITEM(%#i%,&id)
+
+			IF((%&id% != "air") && (%&id% != "diamond_sword") && (%&id% != "baked_potato"))
+				SET(chest_full)
+			ENDIF
+		NEXT
+
+		IF(%chest_full%)
+			LOG("[zomb] %DATETIME% Disconnected due to chest being full")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest being full")
+			DISCONNECT()
+		ENDIF
+
+		// Attempt to close chest
+		DO(%#chest_close_time%)
+			GUI
+			WAIT(1t)
+		UNTIL(%GUI% = "NONE")
+
+		IF(%GUI% != "NONE")
+			LOG("[zomb] %DATETIME% Disconnected due to chest not closing")
+			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not closing")
+			DISCONNECT()
+		ENDIF
+
+		#t = 0
+	ELSE
+		// Only attack mobs (Saves on hunger)
+		IF(%HIT% == "ENTITY")
+			KEY(attack)
+		ENDIF
+	ENDIF
+
+	INC(#t)
+	$$<eatFood.txt>
+	WAIT(10t)
+LOOP
+ENDUNSAFE

@@ -1,6 +1,0 @@
-
-#yaw = %YAW%+180
-#pitch = %PITCH%
-
-log("Yaw: "%#yaw%)
-log("Pitch: "%#pitch%)

@@ -1,0 +1,535 @@
+// Script to automate Kalingrad's birch farm
+
+// Notes on usage:
+
+	// Start the script in the south east corner.  You may start in other positions, granted that
+	// you are looking in the direction the bot would be facing at that point
+
+	// The birch farm is 19x19 trees.  This means you should start the bot with at least 361
+	// saplings anywhere in its inventory.  This rounds up to 6 stacks of saplings
+
+	// You should additionally provide at least a stack of food to ensure running ability.  Although
+	// the bot will not disconnect if it runs out of food (but will if it takes damage due to starvation)
+
+	// As well, the bot requires 1 diamond axe.  It will only use 1 axe it is provided with, and will
+	// disconnect in the event it runs out of durability.  (The farm will require around 1805 breaks, and
+	// a UNB3 diamond axe has around 6144 breaks at 100% durability)
+
+
+// Design constraints and functionality requirements:
+	// 1-tick event loop.
+	// Don't use GETID
+	// Disconnect on y-level change
+	// Disconnect if we get stuck (don't move for 10 seconds)
+	// Disconnect if obtain damage
+	// Disconnect if we run out of durability
+	// Disconnect if we finish successfully
+	// Disconnect if no diamond axe
+	// Disconnect if run out of saplings
+	// Snap angles on every wait command
+	// Break blocks in front based on %durability%
+	//   (If break those blocks, also break above blocks)
+	// Use modulo coordinates to move in loop
+	// On modulo coordinates, throw logs into water flow
+	// Check for conditions on X Y change
+	// Eat any food when we're hungry
+	// Full package file (No external dependencies)
+
+// Set directional yaw values as constants
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Initialize position state
+#x = %XPOS% - 1
+#y = %YPOS%
+#z = %ZPOS% - 1
+
+// Save some angle constants for looking at blocks
+#bottom_tree_pitch = 50
+#top_tree_pitch = 0
+#above_tree_pitch = 270
+#sapling_placement_pitch = 57
+#throwing_pitch = 40
+
+// Rate at which to throw items (in ticks)
+#item_throwing_rate = 5
+#item_throwing_iterations_upper_limit = 500
+
+// Coordinate parameters
+#max_z = -3658
+#min_z = -3730
+#max_x = -11046
+#min_x = -11126
+
+// Specify our durability disconnect condition
+#durability_lower_limit = 50
+
+// Specify number of ticks to wait when trying to select axe and saplings
+#axe_selection_ticks_upper_limit = 20
+#sapling_selection_ticks_upper_limit = 20
+#log_selection_ticks_upper_limit = 20
+
+// Specify max number of ticks to wait for block break
+#block_break_upper_limit = 20
+#block_break_attempts_upper_limit = 15
+
+// Initialize variable to track how long we haven't moved for
+#ticks_since_last_block_move = 0
+#ticks_since_last_block_move_upper_limit = 20 * 5
+
+// Initialize our angle
+IF(%DIRECTION% = "N")
+    LOOK(%#yaw_north%,+0)
+ELSEIF(%DIRECTION% = "E")
+    LOOK(%#yaw_east%,+0)
+ELSEIF(%DIRECTION% = "S")
+    LOOK(%#yaw_south%,+0)
+ELSEIF(%DIRECTION% = "W")
+    LOOK(%#yaw_west%,+0)
+ENDIF
+
+LOOK(+0,%#top_tree_pitch%)
+WAIT(1t)
+
+// Initialize some modal states
+UNSET(tree_was_encountered_in_previous_block_position)
+
+// If health isn't 20, stop and warn the user
+IF(%HEALTH% != 20)
+	LOG("")
+	LOG("")
+	LOG("")
+	LOG("&f        ERROR: HEAL YOURSELF AND TRY AGAIN")
+	LOG("&cHealth is not at maximum, so the bot would disconnect immediately for safety (aren't you glad I noticed?)")
+	LOG("&cHeal yourself and then try running this script again")
+	STOP
+ENDIF
+
+UNSAFE(0)
+DO
+	// Save snapped yaw to use on every look command
+	#yaw = %YAW% + 180
+
+	// Move forward
+	KEYDOWN(forward)
+	SPRINT
+	KEYUP(sneak)
+
+	// If our item currently isn't an axe, get an axe.  If we fail, disconnect
+	IF(%ITEM% != "diamond_axe")
+		KEYUP(forward)
+		PICK("diamond_axe")
+
+		DO(%#axe_selection_ticks_upper_limit%)
+			LOOK(%#yaw%,%#top_tree_pitch%)
+			WAIT(1t)
+		UNTIL(%ITEM% == "diamond_axe")
+
+		IF(%ITEM% != "diamond_axe")
+			LOG("[birch] %DATETIME% Disconnected due to not having diamond axe")
+			LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to not having diamond axe")
+			DISCONNECT
+		ENDIF
+	ENDIF
+
+	// Check for y-level change disconnect condition
+	IF(%YPOS% != %#y%)
+		LOG("[birch] %DATETIME% Disconnected due to y-level change")
+		LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to y-level change")
+		DISCONNECT
+	ENDIF
+
+	// Check for durability disconnect condition
+	IF(%DURABILITY% < %#durability_lower_limit%)
+		LOG("[birch] %DATETIME% Disconnected due to low durability")
+		LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to low durability")
+		DISCONNECT
+	ENDIF
+
+	// Check for "have we moved in the last X seconds?" disconnect condition
+	IF(%#ticks_since_last_block_move% > %#ticks_since_last_block_move_upper_limit%)
+		LOG("[birch] %DATETIME% Disconnected due to getting stuck")
+		LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to getting stuck")
+		DISCONNECT
+	ENDIF
+
+	// Check for health disconnect condition
+	IF(%HEALTH% < 20)
+		LOG("[birch] %DATETIME% Disconnected due to taking damage!!!")
+		LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to taking damage!!!")
+		DISCONNECT
+	ENDIF
+
+	// Are we on a new block?
+	IF((%#x% != %XPOS%) || (%#z% != %ZPOS%))
+
+		// Reset our counter for getting stuck
+		#ticks_since_last_block_move = 0
+
+		// Calculate X Z delta of whatever we're looking at
+		#delta_x = %XPOS% - %HITX%
+		#delta_z = %ZPOS% - %HITZ%
+		IF(%#delta_x% < 0)
+			#delta_x = - %#delta_x%
+		ENDIF
+		IF(%delta_z% < 0)
+			#delta_z = - %#delta_z%
+		ENDIF
+
+		// Are we looking at a top tree block that is next to us?
+		IF((%HITY% == (%YPOS% + 1)) && (%#delta_x% <= 1) && (%#delta_z% <= 1))
+			SET(tree_was_encountered_in_previous_block_position)
+
+			// Stop moving forward until next event loop
+			KEYUP(forward)
+			KEYDOWN(sneak)
+
+			// Attack until the top tree block is destroyed
+			#hitx = %HITX%
+			#hity = %HITY%
+			#hitz = %HITZ%
+			DO(%#block_break_upper_limit%)
+				LOOK(+0,%#top_tree_pitch%)
+				KEY(attack)
+				WAIT(1t)
+			UNTIL((%#hitx% != %HITX%) || (%#hity% != %HITY%) || (%#hitz% != %HITZ%))
+
+			IF((%#hitx% == %HITX%) && (%#hity% == %HITY%) && (%#hitz% == %HITZ%))
+				LOG("[birch] %DATETIME% Disconnected due to unable to break top tree block")
+				LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to unable to break top tree block")
+				DISCONNECT
+			ENDIF
+
+			// Check if there is a bottom tree block
+			LOOK(%#yaw%,%#bottom_tree_pitch%)
+			WAIT(1t)
+
+			// If there is a bottom block, attack it until it is destroyed
+			IF(%HITY% == %YPOS%)
+				#hitx = %HITX%
+				#hity = %HITY%
+				#hitz = %HITZ%
+				DO(%#block_break_upper_limit%)
+					LOOK(%#yaw%,%#bottom_tree_pitch%)
+					KEY(attack)
+					WAIT(1t)
+				UNTIL((%#hitx% != %HITX%) || (%#hity% != %HITY%) || (%#hitz% != %HITZ%))
+
+				IF((%#hitx% == %HITX%) && (%#hity% == %HITY%) && (%#hitz% == %HITZ%))
+					LOG("[birch] %DATETIME% Disconnected due to unable to break bottom tree block")
+					LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to unable to break bottom tree block")
+					DISCONNECT
+				ENDIF
+			ENDIF
+
+			// Choose sapling and attempt to place on floor block
+			IF(%ITEM% != "sapling")
+				PICK("sapling:2")
+				WAIT(1t)
+
+				DO(%#sapling_selection_ticks_upper_limit%)
+					LOOK(%#yaw%,%#sapling_placement_pitch%)
+					WAIT(1t)
+				UNTIL(%ITEM% == "sapling")
+
+				IF(%ITEM% != "sapling")
+					LOG("[birch] %DATETIME% Disconnected due to running out of saplings")
+					LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to running out of saplings")
+					DISCONNECT
+				ENDIF
+			ENDIF
+
+			LOOK(%#yaw%,%#sapling_placement_pitch%)
+			WAIT(1t)
+
+			KEY(use)
+			WAIT(1t)
+
+		// Did we encounter a tree while in the previous block position?
+		ELSEIF(%tree_was_encountered_in_previous_block_position%)
+			UNSET(tree_was_encountered_in_previous_block_position)
+
+			// Stop moving forward
+			KEYUP(forward)
+			KEYDOWN(sneak)
+
+			// Look up and break all blocks we can see
+			LOOK(%#yaw%,%#above_tree_pitch%)
+			WAIT(1t)
+
+			DO(%#block_break_attempts_upper_limit%)
+				#hitx = %HITX%
+				#hity = %HITY%
+				#hitz = %HITZ%
+				DO(%#block_break_upper_limit%)
+					LOOK(%#yaw%,%#above_tree_pitch%)
+					KEY(attack)
+					WAIT(1t)
+				UNTIL((%#hitx% != %HITX%) || (%#hity% != %HITY%) || (%#hitz% != %HITZ%))
+			UNTIL(%HITY% == 0)
+
+		ENDIF
+
+		// Document modulo conditions.  These are used in lieu of block info to encode our path
+			// Modulo condition for ending:
+			// c1: x = min_x, z = min_z
+			// Modulo condition for looking NORTH:
+			// c2: x = min_x, z = max_z - n * 8, where n >= 0
+				// OR
+			// c3: x = max_x, z = max_z - 4 - n * 8, where n >= 0
+			// Modulo condition for looking EAST:
+			// c4: x = min_x, z = max_z - 4 - n * 8, where n >= 0
+			// Modulo condition for looking WEST:
+			// c5: x = max_x, z = max_z - n * 8, where n >= 0
+			// Modulo condition for throwing items:
+			// c6: x = min_x, z = max_z - 4 - n * 16, where n >= 0
+
+		// Calculate modulo conditions so we can decide what direction to move in
+		c1 = (%XPOS% == %#min_x%) && (%ZPOS% == %#min_z%)
+
+		#modulo_arg_1 = %ZPOS% - %#max_z%
+		#modulo_arg_2 = 8
+		#div = %#modulo_arg_1% / %#modulo_arg_2%
+		#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+		c2 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+		#modulo_arg_1 = %ZPOS% - %#max_z% - 4
+		#modulo_arg_2 = 8
+		#div = %#modulo_arg_1% / %#modulo_arg_2%
+		#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+		c3 = (%XPOS% == %#max_x%) && (%#rem% == 0)
+
+		#modulo_arg_1 = %ZPOS% - %#max_z% - 4
+		#modulo_arg_2 = 8
+		#div = %#modulo_arg_1% / %#modulo_arg_2%
+		#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+		c4 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+		#modulo_arg_1 = %ZPOS% - %#max_z%
+		#modulo_arg_2 = 8
+		#div = %#modulo_arg_1% / %#modulo_arg_2%
+		#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+		c5 = (%XPOS% == %#max_x%) && (%#rem% == 0)
+
+		#modulo_arg_1 = %ZPOS% - %#max_z% - 2
+		#modulo_arg_2 = 8
+		#div = %#modulo_arg_1% / %#modulo_arg_2%
+		#rem = %#modulo_arg_1% - %#div% * %#modulo_arg_2%
+		c6 = (%XPOS% == %#min_x%) && (%#rem% == 0)
+
+		IF(%c1% || %c2% || %c3% || %c4% || %c5% || %c6%)
+			KEYUP(forward)
+		ENDIF
+
+		IF(%c1%)
+			LOG("[birch] %DATETIME% Disconnected due to reaching end")
+			LOGTO(kalingrad_logs.txt,"%DATETIME% Disconnected due to reaching end")
+			DISCONNECT
+			STOP
+		ELSEIF((%c2%) || (%c3%))
+			LOOK(%#yaw_north%,%#top_tree_pitch%)
+		ELSEIF(%c4%)
+			LOOK(%#yaw_east%,%#top_tree_pitch%)
+		ELSEIF(%c5%)
+			LOOK(%#yaw_west%,%#top_tree_pitch%)
+		ELSEIF(%c6%)
+			LOOK(%#yaw_east%,%#throwing_pitch%)
+			WAIT(1t)
+
+			// Throw all logs into item flow
+            #find_timer = 0
+            DO(%#item_throwing_iterations_upper_limit%)
+            	LOOK(%#yaw_east%,%#throwing_pitch%)
+                PICK("log:2")
+                WAIT(1t)
+
+                IF(%ITEM% != "log")
+                    INC(#find_timer)
+                ELSE
+                    #find_timer = 0
+                    KEY(drop)
+                    WAIT(%#item_throwing_rate%t)
+                ENDIF
+            UNTIL(%#find_timer% >= %#log_selection_ticks_upper_limit%)
+
+			LOOK(%#yaw_north%,%#top_tree_pitch%)
+		ENDIF
+
+		#x = %XPOS%
+		#z = %ZPOS%
+	ELSE
+		INC(#ticks_since_last_block_move)
+	ENDIF
+
+	LOOK(+0,%#top_tree_pitch%)
+
+	// Eat food if so hungry sprinting is prevented
+	IF(%HUNGER% <= 6)
+	    UNSET(found_food)
+
+	    &iter_foods = "apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato"
+	    &iter_foods[] = SPLIT(" ",%&iter_foods%)
+	    FOREACH(&iter_foods,&iter_food)
+	        PICK(%&iter_food%)
+
+	        IF(%ITEM%=%&iter_food%)
+	            SET(found_food)
+	        ENDIF
+	    NEXT
+
+	    IF(%found_food%)
+
+	        &food_selected = %ITEM%
+
+	        KEYUP(forward)
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(back)
+	        KEYUP(jump)
+
+	        WAIT(5t)
+
+	        // Eat until hunger is full, or we run out of our food selected
+	        DO
+	            KEY(use)
+	            WAIT(1t)
+	        UNTIL((%HUNGER%=20)||(%ITEM%!=%&food_selected%))
+	    ENDIF
+	ENDIF
+
+	IF(%DIRECTION% = "N")
+	    LOOK(%#yaw_north%,+0)
+	ELSEIF(%DIRECTION% = "E")
+	    LOOK(%#yaw_east%,+0)
+	ELSEIF(%DIRECTION% = "S")
+	    LOOK(%#yaw_south%,+0)
+	ELSEIF(%DIRECTION% = "W")
+	    LOOK(%#yaw_west%,+0)
+	ENDIF
+
+	// Center self on current block
+	IF((%DIRECTION% = "N")||(%DIRECTION% = "S"))
+	    MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+	    // Too high
+	    IF((%&digit% = "6")||(%&digit% = "7")||(%&digit% = "8")||(%&digit% = "9"))
+	        KEYDOWN(sneak)
+	        DO
+	            IF(%DIRECTION% = "N")
+	                IF(%XPOS% > 0)
+	                    KEYDOWN(left)
+	                ELSE
+	                    KEYDOWN(right)
+	                ENDIF
+	            ELSE
+	                IF(%XPOS% > 0)
+	                    KEYDOWN(right)
+	                ELSE
+	                    KEYDOWN(left)
+	                ENDIF
+	            ENDIF
+
+	            WAIT(1t)
+	            MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+	        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(sneak)
+	    ENDIF
+
+	    // Too low
+	    IF((%&digit% = "0")||(%&digit% = "1")||(%&digit% = "2")||(%&digit% = "3"))
+	        KEYDOWN(sneak)
+	        DO
+	            IF(%DIRECTION% = "N")
+	                IF(%XPOS% > 0)
+	                    KEYDOWN(right)
+	                ELSE
+	                    KEYDOWN(left)
+	                ENDIF
+	            ELSE
+	                IF(%XPOS% > 0)
+	                    KEYDOWN(left)
+	                ELSE
+	                    KEYDOWN(right)
+	                ENDIF
+	            ENDIF
+
+	            WAIT(1t)
+	            MATCH(%XPOSF%,(?:\.)(\d),&digit,1)
+
+	        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(sneak)
+
+	    ENDIF
+	ELSEIF((%DIRECTION% = "E")||(%DIRECTION% = "W"))
+	    MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+	    // Too high
+	    IF((%&digit% = "6")||(%&digit% = "7")||(%&digit% = "8")||(%&digit% = "9"))
+	        KEYDOWN(sneak)
+	        DO
+	            IF(%DIRECTION% = "W")
+	                IF(%ZPOS% > 0)
+	                    KEYDOWN(right)
+	                ELSE
+	                    KEYDOWN(left)
+	                ENDIF
+	            ELSE
+	                IF(%ZPOS% > 0)
+	                    KEYDOWN(left)
+	                ELSE
+	                    KEYDOWN(right)
+	                ENDIF
+	            ENDIF
+
+	            WAIT(1t)
+	            MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+	        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(sneak)
+
+	    ENDIF
+
+	    // Too low
+	    IF((%&digit% = "0")||(%&digit% = "1")||(%&digit% = "2")||(%&digit% = "3"))
+	        KEYDOWN(sneak)
+	        DO
+	            IF(%DIRECTION% = "W")
+	                IF(%ZPOS% > 0)
+	                    KEYDOWN(left)
+	                ELSE
+	                    KEYDOWN(right)
+	                ENDIF
+	            ELSE
+	                IF(%ZPOS% > 0)
+	                    KEYDOWN(right)
+	                ELSE
+	                    KEYDOWN(left)
+	                ENDIF
+	            ENDIF
+
+	            WAIT(1t)
+	            MATCH(%ZPOSF%,(?:\.)(\d),&digit,1)
+
+	        UNTIL((%&digit% = "4")||(%&digit% = "5"))
+
+	        KEYUP(left)
+	        KEYUP(right)
+	        KEYUP(sneak)
+	    ENDIF
+	ENDIF
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE

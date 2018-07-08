@@ -1,0 +1,20 @@
+LOG(foo)
+
+UNSET(@open_crafting_table)
+EXEC("openCraftingTable.txt")
+DO
+    WAIT(1t)
+UNTIL(@open_crafting_table)
+
+    // Craft ladders
+    UNSET(@fastcraft)
+    EXEC("fastCraft.txt", "fastCraft", "0 stick N stick stick stick stick stick N stick")
+    DO
+        WAIT(1t)
+    UNTIL(@fastcraft)
+
+UNSET(@close_crafting_table)
+EXEC("closeCraftingTable.txt")
+DO
+    WAIT(1t)
+UNTIL(@close_crafting_table)

@@ -72,7 +72,7 @@ ENDIF
 
 // Now that we have verified there is exactly one adjacent cobblestone block, turn towards it
 
-LOOK(%#main_yaw%, 50)
+LOOK(%#main_yaw%,50)
 
 $$<cobbleBot_blockPositions.txt>
 // 1: Extra (junk)

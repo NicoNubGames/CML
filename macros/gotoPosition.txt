@@ -1,0 +1,23 @@
+
+#target_x = %HITX%
+#target_z = %HITZ%
+
+CALCYAWTO(%#target_x%,%#target_z%,#yaw)
+#yaw = %#yaw% + 180
+
+LOOK(%#yaw%,25)
+WAIT(1t)
+
+KEYDOWN(forward)
+
+UNSAFE(0)
+DO
+	CALCYAWTO(%#target_x%,%#target_z%,#yaw)
+	#yaw = %#yaw% + 180
+	LOOK(%#yaw%,25)
+	SPRINT
+	WAIT(1t)
+UNTIL((%XPOS% == %#target_x%) && (%ZPOS% == %#target_z%))
+ENDUNSAFE
+
+KEYUP(forward)

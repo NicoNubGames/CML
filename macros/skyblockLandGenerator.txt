@@ -1,0 +1,62 @@
+
+
+UNSAFE(0)
+DO
+	$$<skyblockLandGenerator_blockPositions.txt>
+	// 0: under
+	// 1: forward
+	// 2: right
+	// 3: left
+	// 4: back
+
+	KEYUP(sneak)
+	KEYDOWN(forward)
+	PICK("cobblestone")
+
+	// If the block on the right is air, turn towards it
+	GETID(%#block_x[2]%,%#block_y[2]%,%#block_z[2]%,&id)
+	IF(%&id% == "air")
+		LOOK(%#block_yaw[2]%,%#block_pitch[2]%)
+	ELSE
+		// If block forward is air, walk forward until we're on air
+		GETID(%#block_x[1]%,%#block_y[1]%,%#block_z[1]%,&id)
+		IF(%&id% == "air")
+			#saved_yaw = %YAW% + 180
+			KEYDOWN(forward)
+			KEYDOWN(sneak)
+			DO
+				GETIDREL(0,-1,0,&id)
+				WAIT(1t)
+			UNTIL(%&id% == "air")
+			// Walk a bit longer
+			WAIT(5t)
+			KEYUP(forward)
+
+			// Make sure we still have cobblestone left
+			DO(20)
+				WAIT(1t)
+			UNTIL(%ITEM% == "cobblestone")
+
+			IF(%ITEM% != "cobblestone")
+				LOG("Ran out of cobblestone")
+				STOP
+			ENDIF
+
+			LOOK(%#block_yaw[4]%,%#block_pitch[4]%)
+			KEY(use)
+			WAIT(1t)
+			LOOK(%#saved_yaw%,+0)
+		ELSE
+			// If the block on the right is air, turn right
+			GETID(%#block_x[3]%,%#block_y[3]%,%#block_z[3]%,&id)
+			IF(%&id% == "air")
+				LOOK(%#block_yaw[3]%,%#block_pitch[3]%)
+			ENDIF
+		ENDIF
+	ENDIF
+
+	$$<snapYaw.txt>
+	//$$<centerSelf.txt>
+	WAIT(1t)
+LOOP
+ENDUNSAFE

@@ -1,6 +1,6 @@
 // Eat, if necessary.  By default, it won't eat any uncooked food, golden food, or "rare" food (stew, cake, cookies)
 // For list of foods accepted, see LOOP_FOODS
-IF(%HUNGER% <= 15)
+IF(%HUNGER% <= 6)
     UNSET(found_food)
 
     $$<LOOP_FOODS.txt>

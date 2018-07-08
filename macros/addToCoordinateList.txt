@@ -18,5 +18,5 @@
 
 LOG(%DIRECTION%)
 LOG("%#delta_x%, %#delta_y%, %#delta_z%, %#yaw%, %#pitch%")
-LOGTO("coordinates.txt","%#delta_x%, %#delta_y%, %#delta_z%, %#yaw%, %#pitch%")
+LOGTO("coordinates.txt","%#delta_x% %#delta_y% %#delta_z% %#yaw% %#pitch%")
 

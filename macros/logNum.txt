@@ -1,8 +1,0 @@
-UNSAFE(0)
-DO(20)
-	LOGTO(debug,)
-LOOP
-
-LOGTO(debug,"foo")
-
-ENDUNSAFE

@@ -1,0 +1,270 @@
+// Will mine cobble in a simple way.  Make sure "pickupCounter.txt" is also bound to onPickupItem
+
+// Out of the four cardinal directions, one block will be cobblestone.
+// Turn towards that block (in case the bot didn't start in the correct orientation)
+// If more than one adjacent block is cobblestone, give up
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+GETIDREL(0,1,-1,&n_block)
+GETIDREL(1,1,0,&e_block)
+GETIDREL(0,1,1,&s_block)
+GETIDREL(-1,1,0,&w_block)
+
+UNSET(ambiguous)
+#main_yaw = 0
+
+IF(%&n_block% = "cobblestone")
+    #main_yaw = %#yaw_north%
+ELSEIF(%&e_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_east%
+ELSEIF(%&s_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_south%
+ELSEIF(%&w_block% = "cobblestone")
+    IF(%#main_yaw% != 0)
+        SET(ambiguous)
+    ENDIF
+    #main_yaw = %#yaw_west%
+ENDIF
+
+IF(ambiguous)
+    LOG("&a[cobbleBot]&7 Stopping: More than 1 adjacent cobblestone block")
+    STOP
+ENDIF
+
+IF(%#main_yaw% = 0)
+    LOG("&a[cobbleBot]&7 Stopping: No adjacent cobblestone blocks")
+    STOP
+ENDIF
+
+GETIDREL(0,-1,0,&standing_block)
+IF(%&standing_block% != "crafting_table")
+    LOG("&a[cobbleBot]&7 Stopping: Not standing on crafting table")
+    STOP
+ENDIF
+
+LOOK(%#main_yaw%,0)
+WAIT(1t)
+
+$$<skyblockCobble_blockPositions.txt>
+// 0: cobble
+// 1: chest
+// 2: crafting
+
+@#pickup_counter = 0
+#amount_needed_to_store = 1024
+
+UNSAFE(0)
+DO
+    DO
+        IF(%ITEM% != "stone_pickaxe")
+            PICK("stone_pickaxe")
+            DO(10)
+                WAIT(1t)
+            UNTIL(%ITEM% == "stone_pickaxe")
+
+            IF(%ITEM% != "stone_pickaxe")
+                LOGTO(skyblock_cobble.txt,"%DATETIME% Crafting new pickaxe set")
+                BREAK
+            ENDIF
+        ENDIF
+
+        LOOK(%#block_yaw[0]%,%#block_pitch[0]%)
+
+        IF((%HITID% = "cobblestone") && (%HITX% = %#block_x[0]%) && (%HITY% = %#block_y[0]%) && (%HITZ% = %#block_z[0]%))
+            KEY(attack)
+        ENDIF
+
+        @#progress = (%@#pickup_counter% * 100) / %#amount_needed_to_store%
+        WAIT(1t)
+    UNTIL(%@#pickup_counter% >= %#amount_needed_to_store%)
+
+    IF(%@#pickup_counter% >= %#amount_needed_to_store%)
+        LOGTO(skyblock_cobble.txt,"%DATETIME% Storing cobble into chest")
+    ENDIF
+
+    @#pickup_counter = 0
+
+    PICK("stone_pickaxe")
+    WAIT(1t)
+
+    // Did we run out of stone pickaxes?
+    IF(%ITEM% != "stone_pickaxe")
+
+        // Open inventory and check if we have 2 sticks, a 2 planks, or a log
+        GUI(inventory)
+        DO(20)
+            WAIT(1t)
+        UNTIL(%GUI% == "GUIINVENTORY")
+
+        IF(%GUI% != "GUIINVENTORY")
+            LOGTO(logs.txt,"[cobble] %TIMEDATE% Couldn't open inv")
+            LOG("[cobble] %TIMEDATE% Couldn't open inv")
+            STOP
+        ENDIF
+
+        #sticks = 0
+        #planks = 0
+        #logs = 0
+        FOR(#i,9,44)
+            GETSLOTITEM(%#i%,&id,#size)
+            IF(%&id% == "stick")
+                #sticks = %#sticks% + %#size%
+            ELSEIF(%&id% == "planks")
+                #planks = %#planks% + %#size%
+            ELSEIF(%&id% == "log")
+                #logs = %#logs% + %#size%
+            ENDIF
+        NEXT
+
+        GUI
+
+        // If we don't already have the mats, we need to check the chest
+        IF((%#sticks% < 3) && (%#planks% < 2) && (%#logs% == 0))
+
+            LOOK(%#block_yaw[1]%,%#block_pitch[1]%)
+            WAIT(1t)
+
+            UNSET(@open_chest)
+            EXEC("openChest.txt")
+            DO
+                WAIT(1t)
+            UNTIL(@open_chest)
+
+            // Place all cobblestone
+            FOR(#i,27,64)
+                GETSLOTITEM(%#i%,&id,#size)
+
+                IF(%&id% == "cobblestone")
+                    SLOTCLICK(%#i%,L,1)
+                    WAIT(4t)
+                ENDIF
+            NEXT
+
+            // Take (at least) 32 cobblestone back
+            #taken = 0
+            FOR(#i,0,26)
+                GETSLOTITEM(%#i%,&id,#size)
+
+                IF(%&id% == "cobblestone")
+                    SLOTCLICK(%#i%,L,1)
+                    WAIT(4t)
+                    #taken = %#taken% + %#size%
+                ENDIF
+
+                IF(%#taken% >= 32)
+                    BREAK
+                ENDIF
+            NEXT
+
+            // Take all sticks, planks, or logs, if they exist
+            #sticks = 0
+            #planks = 0
+            #logs = 0
+            FOR(#i,0,26)
+                GETSLOTITEM(%#i%,&id,#size)
+
+                IF(%&id% == "stick")
+                    #sticks = %#sticks% + %#size%
+                    SLOTCLICK(%#i%,L,1)
+                    WAIT(4t)
+                ELSEIF(%&id% == "planks")
+                    #planks = %#planks% + %#size%
+                    SLOTCLICK(%#i%,L,1)
+                    WAIT(4t)
+                ELSEIF(%&id% == "log")
+                    #logs = %#logs% + %#size%
+                    SLOTCLICK(%#i%,L,1)
+                    WAIT(4t)
+                ENDIF
+            NEXT
+
+            UNSET(@close_chest)
+            EXEC("closeChest.txt")
+            DO
+                WAIT(1t)
+            UNTIL(@close_chest)
+
+            IF((%#sticks% < 3) && (%#planks% < 2) && (%#logs% == 0))
+                LOGTO(logs.txt,"[cobble] %TIMEDATE% Ran out of wood")
+                LOG("[cobble] %TIMEDATE% Ran out of wood")
+                STOP
+            ENDIF
+        ENDIF
+
+        // Open crafting table
+        LOOK(%#block_yaw[2]%,%#block_pitch[2]%)
+        WAIT(1t)
+
+        UNSET(@open_crafting_table)
+        EXEC("openCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_crafting_table)
+
+            IF(%#logs% != 0)
+                UNSET(@fastcraft)
+                EXEC("fastCraft.txt", "fastCraft", "0 log")
+                DO
+                    WAIT(1t)
+                UNTIL(@fastcraft)
+            ENDIF
+
+            IF((%#logs% != 0) || (%#planks% >= 2))
+                UNSET(@fastcraft)
+                EXEC("fastCraft.txt", "fastCraft", "0 planks N N planks")
+                DO
+                    WAIT(1t)
+                UNTIL(@fastcraft)
+            ENDIF
+
+            UNSET(@fastcraft)
+            EXEC("fastCraft.txt", "fastCraft", "0 cobblestone cobblestone cobblestone N stick N N stick N")
+            DO
+                WAIT(1t)
+            UNTIL(@fastcraft)
+
+        UNSET(@close_crafting_table)
+        EXEC("closeCraftingTable.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_crafting_table)
+
+    ELSE
+        // If not, just empty out cobble into chest
+
+        LOOK(%#block_yaw[1]%,%#block_pitch[1]%)
+        WAIT(1t)
+
+        UNSET(@open_chest)
+        EXEC("openChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@open_chest)
+
+        FOR(#i,27,64)
+            GETSLOTITEM(%#i%,&id,#size)
+
+            IF(%&id% == "cobblestone")
+                SLOTCLICK(%#i%,L,1)
+                WAIT(4t)
+            ENDIF
+        NEXT
+
+        UNSET(@close_chest)
+        EXEC("closeChest.txt")
+        DO
+            WAIT(1t)
+        UNTIL(@close_chest)
+    ENDIF
+LOOP
+ENDUNSAFE
