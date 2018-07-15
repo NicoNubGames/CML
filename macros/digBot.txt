@@ -14,7 +14,7 @@ expanded_mode = true
 &iter_shovel = "dirt sand gravel clay"
 &iter_shovel[] = SPLIT(" ",%&iter_shovel%)
 
-$$<snapYaw.txt>
+$$<CML_snapYaw.txt>
 
 SET(prev_done)
 #saved_yaw = %YAW% + 180
@@ -156,8 +156,8 @@ DO
 
     prev_done = done
 
-    $$<eatFood.txt>
-    $$<centerSelf.txt>
+    $$<CML_eatFood.txt>
+    $$<CML_centerSelf.txt>
 
     WAIT(1t)
 LOOP

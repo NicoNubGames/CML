@@ -113,7 +113,7 @@ DO
                     KEY(drop)
                 ENDIF
 
-                $$<snapYaw.txt>
+                $$<CML_snapYaw.txt>
             UNTIL(%#melon_find_timer% >= 20)
         ENDIF
 
@@ -169,8 +169,8 @@ DO
         LOOKS(+90,%#default_pitch%,.2)
     ENDIF
 
-    $$<eatFood.txt>
-    $$<snapYaw.txt>
+    $$<CML_eatFood.txt>
+    $$<CML_snapYaw.txt>
 
     WAIT(1t)
 LOOP

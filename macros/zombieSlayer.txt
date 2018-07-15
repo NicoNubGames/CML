@@ -535,7 +535,7 @@ DO
                     INC(#find_timer)
                 ENDIF
 
-                $$<snapYaw.txt>
+                $$<CML_snapYaw.txt>
             UNTIL(%#find_timer% >= %#item_throw_find_time%)
 		ENDIF
 
@@ -581,7 +581,7 @@ DO
 	ENDIF
 
 	// If we have normal food, go ahead and eat it if the flesh didn't sate us
-	$$<eatFood.txt>
+	$$<CML_eatFood.txt>
 	WAIT(10t)
 LOOP
 ENDUNSAFE
