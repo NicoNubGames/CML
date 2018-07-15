@@ -1,0 +1,54 @@
+// We're principally concerned with enforcing a disconnection radius for snitches.  If a snitch goes off within some
+// limit near us, we set a global value that tells other scripts what happened
+
+// The regex expression detects snitch notifications are divides into the following groups:
+  // 1: Who Dunnit
+  // 2: What they did
+  // 3: What snitch it occured
+  // 4: X
+  // 5: Y
+  // 6: Z
+
+// We use the globally defined variable @#snitch_alert_radius to decide to set @snitch_notify or not
+
+IFMATCHES(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\])
+
+	// If it is a snitch notification, deconstruct it into it's parts:
+
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],&username,1)
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],&action,2)
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],&snitch,3)
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],#snitch_x,4)
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],#snitch_y,5)
+	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],#snitch_z,6)
+
+	// Remove spaces from action
+	REPLACE(&action, ,)
+
+	// Construct snitch message so that it may be space-delimited parsed for data
+	@&snitch_message = %DATE% %TIME% %&username% %&action% %&snitch% %#snitch_x% %#snitch_y% %#snitch_z%
+
+	// Log all snitches to snitchlog.txt.  config.json will decide if/where it gets send to
+	LOGTO(snitchlog.txt,%@&snitch_message%)
+
+	#delta_x = %XPOS% - %#snitch_x%
+	#delta_y = %YPOS% - %#snitch_y%
+	#delta_z = %ZPOS% - %#snitch_z%
+
+	IF(%#delta_x% < 0)
+		#delta_x = -%#delta_x%
+	ENDIF
+
+	IF(%#delta_y% < 0)
+		#delta_y = -%#delta_y%
+	ENDIF
+
+	IF(%#delta_z% < 0)
+		#delta_z = -%#delta_z%
+	ENDIF
+
+	IF((%#delta_x% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%))
+		SET(@snitch_notify)
+	ENDIF
+
+ENDIF

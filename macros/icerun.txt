@@ -1,4 +1,7 @@
-// Designed to run fast on ice-roads
+// Designed to run fast on ice-roads.  Full package file (No external dependencies)
+
+UNSAFE(0)
+
 #t = 0
 #turn_cooldown = 4
 #t4 = 4
@@ -23,7 +26,6 @@ NEXT
 SETPROPERTY(debug,"colour","orange")
 // End instrumentation data
 
-UNSAFE(0)
 DO
 	IF(%HUNGER% <= 15)
 	    UNSET(found_food)
@@ -89,6 +91,9 @@ DO
 		LOOP
 		LOGTO(debug,%&blocks_per_sec% m/s)
 		LOGTO(debug,%#total_blocks% blocks)
+
+		// Save blocks traveled to log file for more comprehensive analysis
+		LOGTO(speedlog.txt,%TIME% %#total_blocks%)
 
 		#total_minutes = %#total_seconds% / 60
 		#remainder_seconds = %#total_seconds% - %#total_minutes% * 60

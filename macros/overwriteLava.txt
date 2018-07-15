@@ -1,6 +1,9 @@
-// Will overwrite lava with cobblestone, if currently possible
+// Useful helper script, will automatically overwrite lava with cobblestone if you are looking
+// in such a location that placing a block will overwrite lava.  Can be improved to utilize
+// buckets.
 
 UNSAFE(0)
+
 DO
 	#x = %HITX%
 	#y = %HITY%

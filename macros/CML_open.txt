@@ -1,0 +1,35 @@
+// Utility to open up GUI-enabled blocks in a robust way
+// Two silent failure modes: Couldn't open the block, and the block wasn't valid
+
+&warn = ""
+
+// Wait 1t so any look commands are processed
+WAIT(1t)
+
+// We include stone in the list of valid blocks because of obfuscator
+&cml_valid_blocks = "stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest"
+&cml_valid_blocks[] = SPLIT(" ",%&cml_valid_blocks%)
+
+UNSET(cml_valid)
+FOREACH(&cml_valid_blocks,&cml_v)
+    IF(%HITID% == %&cml_v%)
+        SET(cml_valid)
+        BREAK
+    ENDIF
+NEXT
+
+// Only press block is it's one of the expected "openable" blocks
+IF(%cml_valid%)
+    KEY(use)
+
+    // Wait until a GUI appears, for a maximum of 5 seconds
+    DO(100)
+        WAIT(1t)
+    UNTIL(%GUI% != "NONE")
+
+    IF(%GUI% == "NONE")
+        &warn = "%DATETIME% CML_open couldn't open %HITID%"
+    ENDIF
+ELSE
+    &warn = "%DATETIME% CML_open called on block %HITID%"
+ENDIF

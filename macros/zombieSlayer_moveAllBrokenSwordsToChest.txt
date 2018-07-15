@@ -1,0 +1,69 @@
+// First, loop through inventory and identify any broken swords (and add them to a list)
+GUI(inventory)
+#j = 0
+FOR(#i,9,44)
+	GETSLOTITEM(%#i%,&id,#size,#dura)
+	IF(%&id% == "diamond_sword")
+		#dura = 1562 - %#dura% + 1
+		IF(%#dura% < %#minimum_durability%)
+			#broken[%#j%] = #i
+			INC(#j)
+		ENDIF
+	ENDIF
+NEXT
+GUI
+
+// Next, if there were broken swords, place them in the broken swords chest.
+IF(%#j% > 0)
+	LOOK(%#block_yaw[13]%,%#block_pitch[13]%)
+	WAIT(1t)
+
+	DO(%#chest_wait_time%)
+		KEY(use)
+		WAIT(1t)
+	UNTIL(%GUI% == "GUICHEST")
+
+	IF(%GUI% != "GUICHEST")
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not opening")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not opening")
+		DISCONNECT
+	ENDIF
+
+	// Move all of the broken swords to chest (we assume it is single chest)
+	WAIT(1t)
+	#max = %#j% - 1
+	FOR(#i,0,%#max%)
+		#slot = 53 + %#broken[%#i%]% - 36 - 1
+		SLOTCLICK(%#slot%,L,1)
+		WAIT(%#item_movement_time%t)
+	NEXT
+
+	// Check if broken sword chest is full or not
+	SET(full)
+	FOR(#i,0,26)
+		GETSLOTITEM(%#i%,&id)
+		IF(%&id% == "air")
+			UNSET(full)
+			BREAK
+		ENDIF
+	NEXT
+
+	// Attempt to close chest
+	DO(%#chest_close_time%)
+		GUI
+		WAIT(1t)
+	UNTIL(%GUI% = "NONE")
+
+	IF(%GUI% != "NONE")
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not closing")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not closing")
+		DISCONNECT
+	ENDIF
+
+	// If broken swords chest was full, disconnect _after_ we close the chest
+	IF(%full%)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest being full")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest being full")
+		DISCONNECT
+	ENDIF
+ENDIF

@@ -1,7 +1,7 @@
 
-// This script is a utility for developing bot schema. Specifically, it allows
+// Utility for developing bot coordinate files. Specifically, it allows
 // one to efficiently find relative positions of chests for use in automated
-// inventory management applications.
+// inventory management applications, as well as automated digging uses.
 
 // For each execution, we add a 6-tuple to a log file:
 //  direction, delta_x, delta_y, delta_z, yaw, pitch

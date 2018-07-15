@@ -1,22 +1,22 @@
 // Will log items of 10 individual chests the script is facing into "mats.txt" in the following form:
-// chest_id, chest_x_pos, chest_y_pos, chest_z_pos, amount
+// chest_id chest_x_pos chest_y_pos chest_z_pos amount
 
-// This is an extension of "matsLogger" that was for a more limited use-case
+// Customize "blockPositions" with coordinate parser utility to change the default chest locations
 
 #correct_xpos = 934
 #correct_zpos = -1952
 
-$$<detailedItemLogger_blockPositions.txt>
+$$<itemLogger_blockPositions.txt>
 
 IF((%XPOS% != %#correct_xpos%) || (%ZPOS% != %#correct_zpos%))
-	LOG("&a[mats]&7 Not in correct spot")
+	LOG("&a[item]&7 Not in correct spot")
 	STOP
 ENDIF
 
 #saved_yaw = %YAW% + 180
 #saved_pitch = %PITCH%
 
-LOGTO(mats.txt,[mats] %DATETIME%)
+LOGTO(mats.txt,[item] %DATETIME%)
 
 UNSAFE(0)
 ARRAYSIZE(#block_x,#num_blocks)
@@ -29,7 +29,7 @@ FOR(#i,0,%#num_blocks%)
     	WAIT(1t)
     UNTIL(%GUI% == "GUICHEST")
     IF(%GUI% != "GUICHEST")
-    	LOG("&a[mats]&7 Chest did not open")
+    	LOG("&a[item]&7 Chest did not open")
     	STOP
     ENDIF
 
@@ -80,7 +80,7 @@ FOR(#i,0,%#num_blocks%)
     UNTIL(%GUI% = "NONE")
 
     IF(%GUI% != "NONE")
-    	LOG("&a[mats]&7 Chest did not close")
+    	LOG("&a[item]&7 Chest did not close")
     	STOP
     ENDIF
 
@@ -93,7 +93,7 @@ DO(20)
 UNTIL(%GUI% = "NONE")
 
 IF(%GUI% != "NONE")
-	LOG("&a[mats]&7 Last chest did not close")
+	LOG("&a[item]&7 Last chest did not close")
 	STOP
 ENDIF
 

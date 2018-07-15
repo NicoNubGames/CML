@@ -1,0 +1,9 @@
+// Utility to close GUI-enabled blocks in a robust way
+
+IF(%GUI% != "NONE")
+	GUI
+
+	DO(20)
+		WAIT(1t)
+	UNTIL(%GUI% == "NONE")
+ENDIF

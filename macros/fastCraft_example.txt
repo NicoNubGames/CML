@@ -1,0 +1,12 @@
+// Example script for crafting haybales using fastcraft
+
+$$<CML_open.txt>
+
+    // Craft all haybales possible
+    UNSET(@fastcraft)
+    EXEC("fastCraft.txt", "fastCraft", "0 wheat wheat wheat wheat wheat wheat wheat wheat wheat")
+    DO
+        WAIT(1t)
+    UNTIL(@fastcraft)
+
+$$<CML_close.txt>

@@ -1,0 +1,26 @@
+// Autojoin handler to control what set of scripts run automatically, and to prevent auto-running scripts
+// if a user is manually controlling the client.  Will set global variable "@automatic" if we determine
+// the client is running automatically
+
+// Initial wait for client to catch up and assign the correct yaw/pitch value
+WAIT(5t)
+
+LOG("&a[join]&7 Move mouse within 10 seconds to prevent autojoin script")
+
+UNSET(@automatic)
+#yaw = %YAW%
+#pitch = %PITCH%
+
+DO(200)
+	
+UNTIL((%#yaw% != %YAW%) || (%#pitch% != %PITCH%))
+
+IF((%#yaw% != %YAW%) || (%#pitch% != %PITCH%))
+	LOG("&a[join]&7 Manual control assumed")
+ELSE
+	SET(@automatic)
+	LOG("&a[join]&7 Automatic control assumed")
+
+	// Add or modify lines below to control which script should run
+	EXEC("zombieSlayer.txt");
+ENDIF

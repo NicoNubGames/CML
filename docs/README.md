@@ -1,75 +1,59 @@
-# CML: Common Macro Library <a name="introduction"></a>
-CML, or the "Common Macro Library" is a repository of macro scripts designed to automate in-game actions in the popular video game Minecraft. These scripts depend on the macro/keybind mod developed by Mumfrey.
+# CML: Common Macro Library
 
-These, I hope, represent the state-of-the-art of what is publicly available in the minecraft automation community.
+### CML is:
 
-As further documentation becomes available, it will be posted here.
+1.  A **library** of macromod scripts that perform basic functions robustly.
+2.  A **hosting station** for me to write scripts when people ask for them.
 
+Some scripts are intended to be used independently, while others are simply **building blocks**. These building blocks allow for progressively more sophisticated behavior, until we have a highly nested structure that gives rise to **complex and robust automation**.
 
-## Table of contents
-1. [Introduction](#introduction)
-2. [FastCraft](#fastcraft): Given a recipe, crafts any item quickly.
-    1. [Installation](#fastcraft_installation)
-    2. [Required Scripts](#fastcraft_required)
-    3. [Recipe and Parameter Syntax](#fastcraft_syntax)
-    4. [Crafting Speed Option](#fastcraft_speed)
-    5. [Video Example](#fastcraft_video)
-    6. [Code Flowchart](#fastcraft_flowchart)
-3. [Contribution](#contribution)
+As well, CML includes some other utilities that are external to macromod itself, but still potentially useful.
 
+## Installation
 
-# fastCraft.txt <a name="fastcraft"></a>
-FastCraft is a parameterized script in the CML family that, given a recipe, crafts any requested amount of any item in a crafting table.  It is robust and will log when errors occur, e.g. when not enough materials were provided.
+The \*.txt scripts should be placed in **%appdata%\.minecraft\liteconfig\common\macros**
 
-FastCraft is intended to be used by other scripts, particularly those in the CML library.  Unlike similar solutions by e.g. Sanwi, this script uses the "halven" right click operation users tend to naturally use when crafting items.
+After that, the scripts may be bounded to either keys or events using the macromod GUI. For specifics, please the [set of tutorials](http://mkb.gorlem.ml/tutorial).
 
-## Installation <a name="fastcraft_installation"></a>
-FastCraft should be placed in the ".minecraft/liteconfig/common/macros/" folder, along with any required scripts as specified below.  To bind to a key, consult a tutorial on basic macro usage.
+## Curated Scripts
 
-## Required Scripts <a name="fastcraft_required"></a>
-Properly running CML_fastCraft.txt will also require **openCraftingTable.txt**, **closeCraftingTable.txt**, and **LOOP_INPUTS.txt**.  These are, respectively, scripts that protect against lag situations when opening crafting tables, and a utility to loop through inputs specified.
+| Script              | Description                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| addToCoordinateList | Meta-automation script for recording block locations as well as yaw/pitch combinations, which are later compiled into a large, macromod-accessible array (i.e. a **coordinate list**).                                                                                                                                                                                                        |
+| CML_centerSelf      | Novel script that centers a bot exactly on the left/right center of the current block by simulating floating point math.                                                                                                                                                                                                                                                                      |
+| CML_close           | Closes an openable block (e.g. chest, furace...) robustly.                                                                                                                                                                                                                                                                                                                                    |
+| CML_onChat          | Notifies global state when a snitch notification is detected, and logs the event to a file. When combined with **logsend**, this is effectively a Discord snitchbot.                                                                                                                                                                                                                          |
+| CML_onJoinGame      | **Automatically starts** a user-specified script if no human input is detected for 10 seconds.                                                                                                                                                                                                                                                                                                |
+| CML_open            | Opens an "openable" block (e.g. chest). Will check if the block currently seen is opennable or not before attempting, and will wait until a GUI is open before returning.                                                                                                                                                                                                                     |
+| craftLadders        | A small script that will **craft as many ladders as possible**. Should be run while looking at a crafting table.                                                                                                                                                                                                                                                                              |
+| digBot              | An [infamous digging script](https://www.youtube.com/watch?v=mHzHMrgVhH0) that mines a 7x7 slice ahead while walking and using appropriate tools. Will also **place blocks underneath** in the case of air gaps (i.e. holes, chasms, etc).                                                                                                                                                    |
+| eatFood             | Eat any food from a list, if hunger is below a certain threshold.                                                                                                                                                                                                                                                                                                                             |
+| fastCraft           | **Optimally efficient crafting method** on servers with anti-cheat, using binary division of item stacks to minimize the number of inventory movements needed. The user supplies the recipe, so in general will handle modded recipes as well.                                                                                                                                                |
+| iceRun              | Designed to run optimally fast on iceroads, but usually needs to be tuned on servers to prevent rubberbanding. Will read contextual environment to **automatically turn** at any forks in the iceroad, including diagonal ones.                                                                                                                                                               |
+| itemLogger          | Reads chests (specified by a coordinate file) and records their contents to a file.                                                                                                                                                                                                                                                                                                           |
+| kalingradBirch      | A nice example of a **robust tree-botting** script that only uses coordinates rather than GETID. Showcases using "**modulo conditions**" to represent actions instead of floor blocks.                                                                                                                                                                                                        |
+| melonBot            | A simple example of a robust melon-farming bot that is designed via the **floor-reading approach**. The bot inspects blocks in the floor and bases its next action on their type, effectively encoding part of the program into the structure of the farm itself.                                                                                                                             |
+| overwriteLava       | Very useful tool that, if enabled, will **automatically overwrite lava** by placing cobblestone, while you mine, without getting in the way.                                                                                                                                                                                                                                                  |
+| CML_snapYaw         | Snaps yaw to the closest cardinal.                                                                                                                                                                                                                                                                                                                                                            |
+| CML_snapYawDiagonal | Snaps yaw to the closest of the eight compass directions.                                                                                                                                                                                                                                                                                                                                     |
+| zombieSlayer        | A state-of-the-art script to remotely and automatically administrate a zombie grinding station. Will **slay zombies** using looting swords, **categorize loot** into three categories, and place rotten flesh in up to 9 double chests. If combined with logsend, will post events to **Discord**, and post performance logs to **Google Sheets** to facilitate an **interactive dashboard**. |
 
-These additional scripts are provided for convenience. Alternatively, [installing CML itself](https://github.com/poteat/CML) will provide these needed library scripts.
+## Utilities
 
-## Recipe and Parameter Syntax <a name="fastcraft_syntax"></a>
-To invoke FastCraft from another script, the following syntax is used:
+| Utility              | Description                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| coordinate_parser    | A C++ program that compiles a coordinate list (from addToCoordinateList) to a macromod data script that is used to specify **bulk relative coordinates** and **yaw/pitch vectors** that are independent with respect to the bot's cardinal direction. |
+| remote_hosting_tools | Various programs, batch files, and instructions on how to create persistent, **graphics-enabled sessions** on either other user accounts, or a remote Windows machine.                                                                                |
+| restart_mc           | An **autohotkey** script that will restart the Minecraft client and autojoin a specified server.                                                                                                                                                      |
 
-    // Craft 4 pickaxes fast
-    UNSET(@fastcraft)
-    EXEC("fastCraft.txt", "fastCraft", "4 cobblestone cobblestone cobblestone N stick N N stick N")
-    DO
-        WAIT(1t)
-    UNTIL(@fastcraft)
-This calling syntax is common to CML programs: It emulates a synchronous (linear) call to a function, by specifying a global variable which represents if the function has halted or not.
+## Q & A
 
-What is notable about this function is the string parameter which represents the **amount to create** and **block recipe** respectively.  The recipe is indexed as thus:
+**Why are some scripts marked with CML\_ and others aren't?**
 
-![Crafting grid with numbered indices 1-9 overlaid](https://i.imgur.com/y4TE0xn.png)
+The "CML\_" marker is only afforded to the scripts that are modular and useful enough to get library status. Especially scripts which are meant to be building blocks.
 
-In this way, a recipe for 4 *fishing rods* would be the following, such that "N" denotes an empty slot:
+## Deprecation Notice
 
-`4 N N stick N stick string stick N string`
+To clean this repository up, a large number of scripts were moved into the "deprecated" folder under macros. Many of these were 1-off, or designed with an out-dated philosophy that doesn't mesh well with the current generation of scripts.
 
-To craft an unlimited amount of a recipe, bounded by the amount of resources available, specify "0" (zero) as the first parameter.  The amount of items specified controls the amount of product crafted, i.e. `4 plank N N plank` results in 4 sticks, rather than eight.
-
-
-## Crafting Speed Option <a name="fastcraft_speed"></a>
-By default, the "crafting speed" on the script is set to 5 ticks.  This means a "slot click operation" is performed every 5/20 of a second.  This is a conservative number and should work fine in most environments.
-
-However, the speed may be easily changed to run faster or slower depending on user needs.  At the top of the file, `#wait_ticks = 5` may be defined as any other natural number (>0).
-
-## Video Example <a name="fastcraft_video"></a>
-For a visual demonstration of the operation of FastCraft, see the following video:
-
-[![](https://img.youtube.com/vi/2QkoqwsjU24/0.jpg)](https://youtu.be/2QkoqwsjU24)
-
-## Code Flowchart <a name="fastcraft_flowchart"></a>
-The following is a flowchart view of FastCraft's behavior.  Because of the focus on efficiency and the fact that there's many cases to handle, the logic is nested.  However, I've done my best to describe the code behavior in an intuitive way:
-
-### fastCraft.txt
-![enter image description here](https://raw.githubusercontent.com/poteat/CML/master/docs/fastcraft/fastcraft.mmd.png)
-### fastCraft_placeCraftingMaterials.txt
-![enter image description here](https://raw.githubusercontent.com/poteat/CML/master/docs/fastcraft/fastcraft_placeCraftingMaterials.mmd.png)
-
-## Contribution <a name="contribution"></a>
-If you find a bug or issue, please post it on [the repository](https://github.com/poteat/CML).  As well, if you wish to contribute, feel free to fork the project or submit a pull request.  This code and documentation is licensed under the MIT License.
+They are still available as I hate to delete anything, as there is still a dearth of good publicly-available macromod code. However, they might be difficult to get working.

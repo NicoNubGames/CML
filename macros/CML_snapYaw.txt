@@ -1,3 +1,5 @@
+// Simple script that snaps yaw to a cardinal direction.
+
 #yaw_north = 360
 #yaw_east = 450
 #yaw_south = 180

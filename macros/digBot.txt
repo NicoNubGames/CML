@@ -1,11 +1,13 @@
 // Generalized script for walking forward and breaking blocks in a 2x7 pattern, or a "ALL" pattern
-// Will also build a bridge under you if air exists
+// Will also build a bridge under you if air exists.
+
+UNSAFE(0)
 
 // Which block to build the bridge with
 &build_bridge_block = "cobblestone"
 
-// Godly mode will use a more comprehensive set of coordinates, mining in an "arch" pattern
-godly_mode = true
+// Expanded mode will use a more comprehensive set of coordinates, mining in an "arch" pattern
+expanded_mode = true
 
 &iter_pick = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone stained_hardened_clay hardened_clay"
 &iter_pick[] = SPLIT(" ",%&iter_pick%)
@@ -21,24 +23,23 @@ SET(prev_done)
 #pos_x = %XPOS% - 1
 #pos_z = %ZPOS% - 1
 
-IF(!%godly_mode%)
+IF(!%expanded_mode%)
     $$<digBot_blockPositions.txt>
 ELSE
-    $$<digBot_godlyBlockPositions.txt>
+    $$<digBot_expandedBlockPositions.txt>
 ENDIF
 
 // Main control loop
-UNSAFE(0)
 DO
     // If we're in a new block, update our block positions
     IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
         #pos_x = %XPOS%
         #pos_z = %ZPOS%
 
-        IF(!%godly_mode%)
+        IF(!%expanded_mode%)
             $$<digBot_blockPositions.txt>
         ELSE
-            $$<digBot_godlyBlockPositions.txt>
+            $$<digBot_expandedBlockPositions.txt>
         ENDIF
     ENDIF
 

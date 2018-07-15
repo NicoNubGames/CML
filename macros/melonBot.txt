@@ -1,3 +1,6 @@
+// Floor-routing based melon bot script.
+
+UNSAFE(0)
 
 // Setting to talk out-loud about status changes (chests full, need materials, etc.)
 UNSET(@log_to_chat)
@@ -17,7 +20,6 @@ ENDIF
 #pos_x = %XPOS% - 1
 #pos_z = %ZPOS% - 1
 
-UNSAFE(0)
 DO
     // Generally hold diamond axe
     PICK("diamond_axe")

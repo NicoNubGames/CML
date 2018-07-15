@@ -1,4 +1,4 @@
-// Book-keeping script for Rhodesia's XP mats room
+// Book-keeping script, writes materials to a file
 
 #correct_xpos = -9399
 #correct_zpos = 8600

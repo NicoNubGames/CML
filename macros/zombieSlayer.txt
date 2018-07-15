@@ -1,30 +1,5 @@
-
-// Specify hardcoded cam vectors
-#zombie_yaw = 484
-#zombie_pitch = 354
-#hopper_yaw = 495
-#hopper_pitch = 4
-#chest_yaw = 537
-#chest_pitch = 34
-
-// Currently (240), transfer items from hopper to chest every 2 minutes
-#iterations_wait_item_transfer = 240
-
-// Time to wait for hopper to open in ticks
-#hopper_wait_time = 100
-
-// Time to wait for hopper to close inventory
-#hopper_close_time = 100
-
-// Time to wait for chest to open in ticks
-#chest_wait_time = 100
-
-// Time to wait for chest to close inventory
-#chest_close_time = 100
-
-// Time to wait between each item movement action
-#item_movement_time = 10
-
+// State-of-the-art zombie-slaying bot designed to be maximally configurable and performant-measurable.  Specifically,
+// it is built to accomodate Discord / Sheets integration via the "logsend" npm package
 
 // This script will slay zombies with looting swords at a prespecified vector, avoid breaking swords
 // as necessary, occasionally move items from a hopper to a chest, and eat.  As well, we will log out in
@@ -33,23 +8,114 @@
 // Disconnect on running out of swords
 // Disconnect on position change
 // Disconnect on taking damage
+// Disconnect on nearby snitch events
+// Disconnect if critically hungry
 // Disconnect if chest is full
 // Disconnect if hopper doesn't open
 // Disconnect if chest doesn't open
 // Disconnect if hopper doesn't close
 // Disconnect if chest doesn't close
 
-// On every disconnect, we will also log to a file.  As well, we will log to a file on every successful
-// change of sword, as well as every hopper/chest switchover.
+// On every disconnect, we will also log to a file.  As well, every interval we measure performance data and log
+// that to a file.
 
+// Both files are connected to logsend, which will send any messages to Discord or Sheets respectively.  From
+// there, we can build interactive and dynamic charts that track performance of the bot.  Finally, we write
+// to a ping timeout file frequently, as logsend will restart the client if it sees we suddenly disconnect
+// without sending a message to Discord
+
+UNSAFE(0)
+
+// Specify hardcoded cam vectors
+#zombie_yaw = 479
+#zombie_pitch = 9
+#small_zombie_yaw = 491
+#small_zombie_pitch = 9
+#hopper_yaw = 508
+#hopper_pitch = 32
+#chest_yaw = 533
+#chest_pitch = 6
+
+// Interval to transfer items from hopper to chest, (every 120 --> 1)
+#iterations_wait_item_transfer = 240
+
+// Time to wait for hopper to open in ticks
+#hopper_wait_time = 200
+
+// Time to wait for hopper to close inventory
+#hopper_close_time = 200
+
+// Time to wait for chest to open in ticks
+#chest_wait_time = 200
+
+// Time to wait for chest to close inventory
+#chest_close_time = 200
+
+// Time to wait between each item movement action
+#item_movement_time = 10
+
+// Health threshold under which we log out.  For some mysterious reason, the bot
+// will take 2 hearts of damage very rarely (once every couple hours).
+#minimum_health_limit = 15
+
+// Time to wait between throwing items
+#item_throw_wait_time = 5
+
+// Max intervals looking for items to throw
+#item_throw_find_time = 3
+
+// Minimum durability, below which we will refuse to use the sword
+#minimum_durability = 5
+
+// If a snitch event happens within this distance, disconnect
+@#snitch_alert_radius = 10
+UNSET(@snitch_notify)
+
+// Valuable items
+&valuable_items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
+&valuable_items[] = SPLIT(" ",%&valuable_items%)
+
+// Useless items
+&useless_items = "chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken"
+&useless_items[] = SPLIT(" ",%&useless_items%)
+
+// Set directional yaw values as constants
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Look east (farm is oriented towards east)
+LOOK(%#yaw_east%,0)
+
+WAIT(5t)
+
+// Get block positions
+$$<zombieSlayer_blockPositions.txt>
+// 0: Zombie Pos 1
+// 1: Zombie Pos 2
+// 2: Hopper
+// 3: Chest 1
+// 4: Chest 2
+// 5: Chest 3
+// 6: Chest 4
+// 7: Chest 5
+// 8: Chest 6
+// 9: Chest 7
+// 10: Chest 8
+// 11: Chest 9
+// 12: Clean Swords Chest
+// 13: Used Swords Chest
+// 14: Iron/Gold Armor Chest
+// 15: Useless Items
 
 // Save position
 #x = %XPOS%
 #y = %YPOS%
 #z = %ZPOS%
 
-// If health isn't 20, stop and warn the user
-IF(%HEALTH% != 20)
+// If health isn't within limit, stop and warn the user
+IF(%HEALTH% < %#minimum_health_limit%)
 	LOG("")
 	LOG("")
 	LOG("")
@@ -60,66 +126,129 @@ IF(%HEALTH% != 20)
 ENDIF
 
 // We will increment slots on durability condition until there is not a diamond sword.
-#current_sword_slot = 1
-#t = 0
+#initial_chest_slot = 3
 
-UNSAFE(0)
+#t = 0
+#t2 = 0
+#current_chest_slot = %#initial_chest_slot%
+
+// If "automatic" flag is set (because we detected that this is an automated execution), log to discord
+IF(%@automatic%)
+	LOG("&a[zomb]&7 %DATETIME% Script started successfully on server rejoin")
+	LOGTO(zombie_slayer.txt,"%DATETIME% Script started successfully on server rejoin")
+ENDIF
+
+UNSET(@automatic)
+
+// Perform initial sword-durability and organization checks.  First, move all the broken
+// swords to the broken swords chest.
+$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
+	// POSSIBLE EXCEPTIONS:
+	// Broken sword chest doesn't open
+	// Broken sword chest is full after we place our items
+	// Broken sword chest doesn't close
+
+// Next, fill hotbar 1-8 with swords if possible.  If less is available, that will do, but if there
+// are no more swords, disconnect
+$$<zombieSlayer_fillHotbarWithSwords.txt>
+	// POSSIBLE EXCEPTIONS:
+	// Clean sword chest doesn't open
+	// We're completely out of clean swords
+	// Clean sword chest doesn't close
+	// OUTPUT:
+	// #clean_chest_swords_durability
+
 DO
-	// Check for y-level change disconnect condition
-	IF((%XPOS% != %#x%) || (%YPOS% != %#y%) || (%ZPOS% != %#z%))
-		LOG("[zomb] %DATETIME% Disconnected due to position change")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to position change")
-		DISCONNECT()
+	// If the grave button is pressed, stop the script and prevent timeout by sending an empty
+	// message to logcast
+	IF(%KEY_GRAVE%)
+		LOG("&a[zomb]&7 Manually stopping due to grave key press")
+		LOGTO(zombie_slayer.txt,)
+		STOP
 	ENDIF
 
-	// Check for health disconnect condition
-	IF(%HEALTH% < 20)
-		LOG("[zomb] %DATETIME% Disconnected due to taking damage!!!")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to taking damage!!!")
+	// Check for y-level change disconnect condition
+	IF((%XPOS% != %#x%) || (%YPOS% != %#y%) || (%ZPOS% != %#z%))
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to position change")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to position change")
 		DISCONNECT
 	ENDIF
 
-	// Handle durability change
-	IF((%ITEM% == "diamond_sword") && (%DURABILITY% <= 4))
-		LOG("[zomb] %DATETIME% Notice: Changing out sword")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Notice: Changing out sword")
-
-		INC(#current_sword_slot)
+	// Check if we're starving, and disconnect if so
+	IF(%HUNGER% <= 1)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to reaching critical hunger level")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to reaching critical hunger level")
+		DISCONNECT
 	ENDIF
 
-	IF(%SLOT% != %#current_sword_slot%)
-		SLOT(%#current_sword_slot%)
-	ELSE
-		// If we currently selected a sword slot, but there is no sword, we ran out
-		IF(%ITEM% != "diamond_sword")
-			LOG("[zomb] %DATETIME% Disconnected due to no swords left")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to no swords left")
-			DISCONNECT()
+	// Check for health disconnect condition
+	IF(%HEALTH% < %#minimum_health_limit%)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to taking damage!!!")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to taking damage!!! (%HEALTH%)")
+		DISCONNECT
+	ENDIF
+
+	// If a snitch event happens too close to us, disconnect
+	IF(%@snitch_notify%)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to snitch event too close")
+		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to the following snitch event: %@&snitch_message%")
+		DISCONNECT
+	ENDIF
+
+	// Loop through hotbar and find sword with max durability
+	#max_slot = 0
+	#max_dura = 0
+	#sum_durability = 0
+	FOR(#i,1,9)
+		SLOT(%#i%)
+		IF(%ITEM% == "diamond_sword")
+			IF(%DURABILITY% > %#max_dura%)
+				#max_dura = %DURABILITY%
+				#max_slot = %#i%
+			ENDIF
+
+			#sum_durability = %#sum_durability% + %DURABILITY%
 		ENDIF
+	NEXT
+
+	// As well, add calculations from clean swords chest to sum_durability for tracking purposes
+	#sum_durability = %#sum_durability% + %#clean_chest_swords_durability%
+
+	IF((%#max_dura% < %#minimum_durability%) || (%#max_slot% == 0))
+		$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
+		$$<zombieSlayer_fillHotbarWithSwords.txt>
 	ENDIF
+
+	SLOT(%#max_slot%)
 
 	// Set waiting bar for item-transfer operation
 	@#progress = (%#t% * 100) / %#iterations_wait_item_transfer%
 
-	LOOK(%#zombie_yaw%,%#zombie_pitch%)
+	// Perform a trace in the small zombie spot.  If there's one, look there instead
+	LOOK(%#block_yaw[1]%,%#block_pitch[1]%)
+	TRACE(3,true)
+
+	IF(%TRACETYPE% != "ENTITY")
+		LOOK(%#block_yaw[0]%,%#block_pitch[0]%)
+	ENDIF
+
+	WAIT(1t)
 
 	IF(%#t% >= %#iterations_wait_item_transfer%)
-		LOG("[zomb] %DATETIME% Notice: Doing item switchover")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Notice: Doing item switchover")
-
-		LOOK(%#hopper_yaw%,%#hopper_pitch%)
+		LOOK(%#block_yaw[2]%,%#block_pitch[2]%)
 		WAIT(1t)
 
 		KEY(use)
 
 		DO(%#hopper_wait_time%)
+			KEY(use)
 			WAIT(1t)
 		UNTIL(%GUI% == "GUIHOPPER")
 
 		IF(%GUI% != "GUIHOPPER")
-			LOG("[zomb] %DATETIME% Disconnected due to hopper not opening")
+			LOG("&a[zomb]&7 %DATETIME% Disconnected due to hopper not opening")
 			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not opening")
-			DISCONNECT()
+			DISCONNECT
 		ENDIF
 
 		// Loop through all hopper items and take them
@@ -127,9 +256,36 @@ DO
 			GETSLOTITEM(%#i%,&id)
 
 			IF(%&id% != "air")
+				WAIT(1t)
 				SLOTCLICK(%#i%,L,1)
 				WAIT(%#item_movement_time%t)
 			ENDIF
+		NEXT
+
+		// Loop through and count how many zombies, useless items, and gold/iron items we have
+		#num_flesh = 0
+		#num_valuable = 0
+		#num_useless = 0
+		FOR(#i,5,40)
+			GETSLOTITEM(%#i%,&id,#size)
+
+			IF(%&id% == "rotten_flesh")
+				#num_flesh = %#num_flesh% + %#size%
+			ENDIF
+
+		    FOREACH(&valuable_items,&valuable_item)
+		        IF(%&id% == %&valuable_item%)
+		            #num_valuable = %#num_valuable% + %#size%
+		            BREAK
+		        ENDIF
+		    NEXT
+
+		    FOREACH(&useless_items,&useless_item)
+		        IF(%&id% == %&useless_item%)
+		            #num_useless = %#num_useless% + %#size%
+		            BREAK
+		        ENDIF
+		    NEXT
 		NEXT
 
 		// Attempt to close hopper storage
@@ -139,74 +295,292 @@ DO
 		UNTIL(%GUI% = "NONE")
 
 		IF(%GUI% != "NONE")
-			LOG("[zomb] %DATETIME% Disconnected due to hopper not closing")
+			LOG("&a[zomb]&7 %DATETIME% Disconnected due to hopper not closing")
 			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not closing")
-			DISCONNECT()
+			DISCONNECT
 		ENDIF
 
-		LOOK(%#chest_yaw%,%#chest_pitch%)
-		WAIT(1t)
+		// This line added to cause chest-looping every iteration
+		#current_chest_slot = %#initial_chest_slot%
 
-		KEY(use)
+		// Incrementally place rotten flesh in flesh chests, until all chests are determined to be full,
+		// if we currently have rotten flesh
+		IF(%#num_flesh% > 0)
+			DO
+				// Open current chest
+				LOOK(%#block_yaw[%#current_chest_slot%]%,%#block_pitch[%#current_chest_slot%]%)
+				WAIT(1t)
 
-		DO(%#chest_wait_time%)
+				KEY(use)
+
+				DO(%#chest_wait_time%)
+					KEY(use)
+					WAIT(1t)
+				UNTIL(%GUI% == "GUICHEST")
+
+				IF(%GUI% != "GUICHEST")
+					LOG("&a[zomb]&7 %DATETIME% Disconnected due to chest not opening")
+					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not opening")
+					DISCONNECT
+				ENDIF
+
+				// Loop through inventory and put all rotten flesh, saving how many we store.
+				// We assume the chest is a double chest.
+				#num_flesh = 0
+				FOR(#i,54,89)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						WAIT(1t)
+						SLOTCLICK(%#i%,L,1)
+						WAIT(%#item_movement_time%t)
+
+						#num_flesh = %#num_flesh% + %#size%
+					ENDIF
+				NEXT
+
+				// Loop the inventory are subtract any rotten flesh we find from the previous amount
+				// We do this in case the chest was full
+				UNSET(flesh_remaining)
+				FOR(#i,54,89)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						#num_flesh = %#num_flesh% - %#size%
+						SET(flesh_remaining)
+					ENDIF
+				NEXT
+
+				// Measure how much rotten flesh is stored in total
+				#total_flesh = (%#current_chest_slot% - 3) * 54 *64
+				FOR(#i,0,53)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						#total_flesh = %#total_flesh% + %#size%
+					ENDIF
+				NEXT
+
+				// If there is flesh left in inventory, and chest has no air, then the chest is full
+				UNSET(chest_full)
+				IF(%flesh_remaining%)
+					SET(chest_full)
+					FOR(#i,0,53)
+						GETSLOTITEM(%#i%,&id)
+						IF(%&id% == "air")
+							UNSET(chest_full)
+							BREAK
+						ENDIF
+					NEXT
+
+					IF(%chest_full%)
+						IF(%#current_chest_slot% < 11)
+							INC(#current_chest_slot)
+						ELSE
+							LOG("&a[zomb]&7 %DATETIME% Disconnected due to all flesh chests full")
+							LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to all flesh chests full")
+							DISCONNECT
+						ENDIF
+					ENDIF
+				ENDIF
+
+				// Attempt to close chest
+				DO(%#chest_close_time%)
+					GUI
+					WAIT(1t)
+				UNTIL(%GUI% = "NONE")
+
+				IF(%GUI% != "NONE")
+					LOG("&a[zomb]&7 %DATETIME% Disconnected due to chest not closing")
+					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not closing")
+					DISCONNECT
+				ENDIF
+			WHILE(%chest_full%)
+		ENDIF
+
+		IF(%#num_valuable% > 0)
+			// Open iron/gold chest
+			LOOK(%#block_yaw[14]%,%#block_pitch[14]%)
 			WAIT(1t)
-		UNTIL(%GUI% == "GUICHEST")
 
-		IF(%GUI% != "GUICHEST")
-			LOG("[zomb] %DATETIME% Disconnected due to chest not opening")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not opening")
-			DISCONNECT()
-		ENDIF
+			KEY(use)
 
-		// Loop through inventory and put all items that aren't diamond swords or baked potatoes
-		// We assume the chest is a double chest.
-		FOR(#i,54,89)
-			GETSLOTITEM(%#i%,&id)
+			DO(%#chest_wait_time%)
+				KEY(use)
+				WAIT(1t)
+			UNTIL(%GUI% == "GUICHEST")
 
-			IF((%&id% != "air") && (%&id% != "diamond_sword") && (%&id% != "baked_potato"))
-				SLOTCLICK(%#i%,L,1)
-				WAIT(%#item_movement_time%t)
+			IF(%GUI% != "GUICHEST")
+				LOG("[zomb] %DATETIME% Disconnected due to iron/gold chest not opening")
+				LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold chest not opening")
+				DISCONNECT
 			ENDIF
-		NEXT
 
-		// Loop through inventory once more.  If any remain, the chest was probably full
-		UNSET(chest_full)
-		FOR(#i,54,89)
-			GETSLOTITEM(%#i%,&id)
+			// Loop through inventory and put all rotten flesh, saving how many we store.
+			// We assume the chest is a double chest.
+			#num_valuable = 0
+			FOR(#i,54,89)
+				GETSLOTITEM(%#i%,&id,#size)
 
-			IF((%&id% != "air") && (%&id% != "diamond_sword") && (%&id% != "baked_potato"))
+				UNSET(is_valuable)
+			    FOREACH(&valuable_items,&valuable_item)
+			        IF(%&id% == %&valuable_item%)
+			            SET(is_valuable)
+			            BREAK
+			        ENDIF
+			    NEXT
+
+				IF(%is_valuable%)
+					WAIT(1t)
+					SLOTCLICK(%#i%,L,1)
+					WAIT(%#item_movement_time%t)
+
+					#num_valuable = %#num_valuable% + %#size%
+				ENDIF
+			NEXT
+
+			// Loop the inventory are subtract any rotten flesh we find from the previous amount
+			// We do this in case the chest was full
+			UNSET(items_remaining)
+			FOR(#i,54,89)
+				GETSLOTITEM(%#i%,&id,#size)
+
+				UNSET(is_valuable)
+			    FOREACH(&valuable_items,&valuable_item)
+			        IF(%&id% == %&valuable_item%)
+			            SET(is_valuable)
+			            BREAK
+			        ENDIF
+			    NEXT
+
+				IF(%is_valuable%)
+					#num_valuable = %#num_valuable% - %#size%
+					SET(items_remaining)
+				ENDIF
+			NEXT
+
+			// If there is flesh left in inventory, and chest has no air, then the chest is full
+			UNSET(chest_full)
+			IF(%items_remaining%)
 				SET(chest_full)
+				FOR(#i,0,53)
+					GETSLOTITEM(%#i%,&id)
+					IF(%&id% == "air")
+						UNSET(chest_full)
+						BREAK
+					ENDIF
+				NEXT
+
+				IF(%chest_full%)
+					LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest full")
+					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold full")
+					DISCONNECT
+				ENDIF
 			ENDIF
-		NEXT
 
-		IF(%chest_full%)
-			LOG("[zomb] %DATETIME% Disconnected due to chest being full")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest being full")
-			DISCONNECT()
+			// Attempt to close chest
+			DO(%#chest_close_time%)
+				GUI
+				WAIT(1t)
+			UNTIL(%GUI% = "NONE")
+
+			IF(%GUI% != "NONE")
+				LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest not closing")
+				LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold chest not closing")
+				DISCONNECT
+			ENDIF
 		ENDIF
 
-		// Attempt to close chest
-		DO(%#chest_close_time%)
-			GUI
+		IF(%#num_useless% > 0)
+			// Choose a slot without sword, so we can avoid messing up swords when running PICK
+			FOR(#i,1,9)
+				SLOT(%#i%)
+				IF(%ITEM% != "diamond_sword")
+					BREAK
+				ENDIF
+			NEXT
+
+			// Look towards useless item throwing area, and throw all items
+			LOOK(%#block_yaw[15]%,%#block_pitch[15]%)
 			WAIT(1t)
-		UNTIL(%GUI% = "NONE")
 
-		IF(%GUI% != "NONE")
-			LOG("[zomb] %DATETIME% Disconnected due to chest not closing")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not closing")
-			DISCONNECT()
+            // Throw all unwanted items
+            // If we can't find a melon block in 1 second, assume our inventory is now empty
+            #find_timer = 0
+            DO
+                PICK("chainmail_helmet")
+                PICK("chainmail_chestplate")
+                PICK("chainmail_leggings")
+                PICK("chainmail_boots")
+                PICK("leather_helmet")
+                PICK("leather_chestplate")
+                PICK("leather_leggings")
+                PICK("leather_boots")
+                PICK("potato")
+                PICK("feather")
+                PICK("carrot")
+                PICK("chicken")
+                WAIT(%#item_throw_wait_time%t)
+
+			    UNSET(is_useless)
+			    FOREACH(&useless_items,&useless_item)
+			        IF(%ITEM% == %&useless_item%)
+			            SET(is_useless)
+			            BREAK
+			        ENDIF
+			    NEXT
+
+                IF(%is_useless%)
+                    #find_timer = 0
+                    KEY(drop)
+                    WAIT(1t)
+                ELSE
+                    INC(#find_timer)
+                ENDIF
+
+                $$<snapYaw.txt>
+            UNTIL(%#find_timer% >= %#item_throw_find_time%)
 		ENDIF
+
+		// Write data stream to google sheets file
+		LOGTO(zombie_slayer_datastream.txt,"%DATE% %TIME% %#sum_durability% %#num_flesh% %#num_valuable% %#total_flesh%")
 
 		#t = 0
 	ELSE
-		// Only attack mobs (Saves on hunger)
+		// Only attack mobs
 		IF(%HIT% == "ENTITY")
 			KEY(attack)
 		ENDIF
 	ENDIF
 
+	// Every so often, write to timeout file that castlog.js uses to detect unscheduled disconnects
+	IF(#t2 >= 8)
+		LOGTO(zombie_slayer_timeout.txt,)
+		#t2 = 0
+	ENDIF
+
 	INC(#t)
+	INC(#t2)
+
+	// Fix GUI if necessary
+	IF(%GUI% != "NONE")
+		PRESS(ESCAPE);
+		WAIT(1t)
+	ENDIF
+
+	// Eat flesh if we're hungry (yuck, but it's self-sufficient)
+	IF(%HUNGER% <= 18)
+		PICK("rotten_flesh")
+
+		IF(%ITEM% == "rotten_flesh")
+			// Look down so we don't accidentally open a chest while intending to eat
+			LOOK(+0,90)
+			WAIT(5t)
+			DO
+				KEY(use)
+				WAIT(1t)
+			UNTIL((%ITEM% != "rotten_flesh") || (%HUNGER% == 20))
+		ENDIF
+	ENDIF
+
+	// If we have normal food, go ahead and eat it if the flesh didn't sate us
 	$$<eatFood.txt>
 	WAIT(10t)
 LOOP

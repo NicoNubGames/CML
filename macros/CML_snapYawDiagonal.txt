@@ -1,3 +1,5 @@
+// Snaps yaw to one of the eight compass directions
+
 #yaw_south = 180
 #yaw_west = 270
 #yaw_north = 360

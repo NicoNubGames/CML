@@ -1,14 +1,16 @@
 ﻿CoordMode, Screen
 
-If WinExist("Minecraft")
-{
-	WinClose, Minecraft
+Process, Close, javaw.exe
 
-	;; Sleep for 5 seconds.  I don't know how to wait until it closes.
+If WinExist("ahk_class LWJGL")
+{
+	WinClose
+
+	;; Sleep for 5 seconds to give everything time to deallocate
 	Sleep, 5000
 }
 
-If !WinExist("Minecraft")
+If !WinExist("ahk_class LWJGL")
 {
 	Run, "C:\Program Files (x86)\Minecraft\MinecraftLauncher.exe"
 	
@@ -84,6 +86,17 @@ If !WinExist("Minecraft")
 	Click, %X%, %Y%
 	Sleep, 500
 	Send, {Enter}
+}
+
+;; Make the window transparent and move it to the corner.  Used for convenient viewing
+;; of the RDP session
+If WinExist("ahk_class LWJGL")
+{
+    WinActivate
+    Sleep, 100
+    WinSet, Style, -0xC00000
+    WinSet, Transparent, 200
+    WinMove, , , 0, 0, 640, 500
 }
 
 #SingleInstance force

@@ -1,20 +1,17 @@
-LOG(foo)
+// Craft as many ladders as possible, using fast craft.  Be looking at a crafting table to start with
 
-UNSET(@open_crafting_table)
-EXEC("openCraftingTable.txt")
+IF(%HITID% != "crafting_table")
+	LOG("&a[craft]&7 %DATETIME% Not looking at crafting table")
+	STOP
+ENDIF
+
+$$<CML_open.txt>
+
+// Craft ladders
+UNSET(@fastcraft)
+	EXEC("fastCraft.txt", "fastCraft", "0 stick N stick stick stick stick stick N stick")
 DO
     WAIT(1t)
-UNTIL(@open_crafting_table)
+UNTIL(@fastcraft)
 
-    // Craft ladders
-    UNSET(@fastcraft)
-    EXEC("fastCraft.txt", "fastCraft", "0 stick N stick stick stick stick stick N stick")
-    DO
-        WAIT(1t)
-    UNTIL(@fastcraft)
-
-UNSET(@close_crafting_table)
-EXEC("closeCraftingTable.txt")
-DO
-    WAIT(1t)
-UNTIL(@close_crafting_table)
+$$<CML_close.txt>

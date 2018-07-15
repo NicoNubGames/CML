@@ -1,4 +1,4 @@
-// Is this a private message?
+// A nice example of parsing commands, but is only applicable to vanilla
 
 STRIP(&chat,%CHAT%)
 

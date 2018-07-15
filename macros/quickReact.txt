@@ -1,5 +1,0 @@
-// If this is a "reaction", grab it.
-
-STRIP(&chat,%CHAT%)
-
-LOG(%&chat%)

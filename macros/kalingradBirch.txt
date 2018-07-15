@@ -1,4 +1,5 @@
-// Script to automate Kalingrad's birch farm
+// Script to automate Kalingrad's birch farm.  Doesn't use GETID, and is a nice example of a sophisticated
+// coordinate-based botting script
 
 // Notes on usage:
 
@@ -34,6 +35,8 @@
 	// Check for conditions on X Y change
 	// Eat any food when we're hungry
 	// Full package file (No external dependencies)
+
+UNSAFE(0)
 
 // Set directional yaw values as constants
 #yaw_north = 360
@@ -107,7 +110,6 @@ IF(%HEALTH% != 20)
 	STOP
 ENDIF
 
-UNSAFE(0)
 DO
 	// Save snapped yaw to use on every look command
 	#yaw = %YAW% + 180

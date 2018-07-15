@@ -1,0 +1,129 @@
+// Note: Use "wandbox" to compile and run this to avoid setting up an IDE and what-not
+// https://wandbox.org/
+
+#include <iostream>
+#include <vector>
+#include <array>
+
+struct block
+{
+	int x, y, z, yaw, pitch;
+
+	block(int x, int y, int z, int yaw, int pitch) : x(x), y(y), z(z), yaw(yaw), pitch(pitch) {};
+
+	void rotate() // Rotate clockwise, i.e. N -> E -> S -> W
+	{
+		int swap = x;
+		x = -z;
+		z = swap;
+
+		yaw += 90;
+
+		if (yaw >= 540)
+		{
+			yaw -= 360;
+		}
+	}
+};
+
+int getIndexOfDirection(std::string s)
+{
+	int index = 0;
+
+	if (s == "N")
+	{
+		index = 0;
+	}
+	else if (s == "E")
+	{
+		index = 1;
+	}
+	else if (s == "S")
+	{
+		index = 2;
+	}
+	else if (s == "W")
+	{
+		index = 3;
+	}
+
+	return index;
+}
+
+int main()
+{
+	std::string dir;
+    std::cin >> dir;
+    
+    std::vector<block> original_blocks;
+    
+    int x, y, z, yaw, pitch;
+    while (std::cin >> x >> y >> z >> yaw >> pitch)
+    {
+        original_blocks.emplace_back(x, y, z, yaw, pitch);
+    }
+    
+	// Create space for four block vectors
+	std::array<std::vector<block>, 4> cardinals;
+
+	// Copy original block vector to beginning element of cardinal array
+	cardinals[0] = original_blocks;
+
+	for (unsigned int i = 1; i < cardinals.size(); i++)
+	{
+		// Copy previous cardinal to current
+		cardinals[i] = cardinals[i - 1];
+
+		// For each block in current cardinal, rotate.
+		for (unsigned int j = 0; j < cardinals[i].size(); j++)
+		{
+			block &b = cardinals[i][j];
+			b.rotate();
+		}
+	}
+    
+	int north_index = 4 - getIndexOfDirection(dir);
+
+	std::vector<std::string> if_statements;
+	if_statements.push_back("IF(%DIRECTION% = \"N\")");
+	if_statements.push_back("ELSEIF(%DIRECTION% = \"E\")");
+	if_statements.push_back("ELSEIF(%DIRECTION% = \"S\")");
+	if_statements.push_back("ELSEIF(%DIRECTION% = \"W\")");
+    
+	std::string tab = "    ";
+
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		north_index %= 4;
+		std::vector<block> set = cardinals[north_index];
+
+		std::cout << if_statements[i] << std::endl;;
+
+		for (unsigned int j = 0; j < set.size(); j++)
+		{
+			block b = set[j];
+			std::string sign;
+
+			sign = b.x < 0 ? "-" : "+";
+			std::cout << tab << "#block_x[" << j << "] = (%XPOS% " << sign << " " << abs(b.x) << ")" << std::endl;
+			sign = b.y < 0 ? "-" : "+";
+			std::cout << tab << "#block_y[" << j << "] = (%YPOS% " << sign << " " << abs(b.y) << ")" << std::endl;
+			sign = b.z < 0 ? "-" : "+";
+			std::cout << tab << "#block_z[" << j << "] = (%ZPOS% " << sign << " " << abs(b.z) << ")" << std::endl;
+			
+			std::cout << tab << "#block_yaw[" << j << "] = " << b.yaw << std::endl;
+			std::cout << tab << "#block_pitch[" << j << "] = " << b.pitch << std::endl;
+
+			if (j != set.size() - 1)
+			{
+				std::cout << std::endl;
+			}
+		}
+
+		north_index++;
+	}
+
+	std::cout << "ENDIF" << std::flush;
+    
+    return 0;
+}
