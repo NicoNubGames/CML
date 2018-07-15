@@ -1,4 +1,3 @@
-
 // Utility for developing bot coordinate files. Specifically, it allows
 // one to efficiently find relative positions of chests for use in automated
 // inventory management applications, as well as automated digging uses.

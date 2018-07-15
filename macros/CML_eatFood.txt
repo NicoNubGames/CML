@@ -3,7 +3,9 @@
 IF(%HUNGER% <= 6)
     UNSET(found_food)
 
-    $$<LOOP_FOODS.txt>
+    &iter_foods = "apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato"
+    &iter_foods[] = SPLIT(" ",%&iter_foods%)
+    FOREACH(&iter_foods,&iter_food)
         PICK(%&iter_food%)
 
         IF(%ITEM%=%&iter_food%)
