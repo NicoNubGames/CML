@@ -1,0 +1,4 @@
+// Given (#a,#a_d) and (#b,#b_d), return (#a,#a_d) which is the product of a and b
+
+#a = %#a% * %#b%
+#a_d = %#a_d% + %#b_d%

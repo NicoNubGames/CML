@@ -1,0 +1,48 @@
+// Given &block, picks best tool to break that block from hotbar.  Will set &warn if can't find tool
+// Expects #min_durability_limit to be defined.  Will find best tool at maximum durability for that block
+
+&warn = ""
+&cml_tool = ""
+
+$$<CML_isPickBlock.txt>
+IF(%yes%)
+    &cml_tool = "diamond_pickaxe"
+ENDIF
+
+$$<CML_isShovelBlock.txt>
+IF(%yes%)
+    &cml_tool = "diamond_shovel"
+ENDIF
+
+$$<CML_isAxeBlock.txt>
+IF(%yes%)
+    &cml_tool = "diamond_axe"
+ENDIF
+
+IF(%&cml_tool% != "")
+    // If we have a tool not in hotbar but in inventory, move it to hotbar
+    PICK(%&cml_tool%)
+
+    // Loop through hotbar and find tool with best durability
+    #cml_max_slot = 0
+    #cml_max_dura = 0
+    FOR(#i,1,9)
+        SLOT(%#i%)
+        IF(%ITEM% == %&cml_tool%)
+            IF(%DURABILITY% >= %#minimum_durability%)
+                #cml_max_dura = %DURABILITY%
+                #cml_max_slot = %#i%
+            ENDIF
+        ENDIF
+    NEXT
+
+    IF(%#cml_max_slot% == 0)
+        &warn = "&a[cml]&7 Could not find %&cml_tool%"
+    ELSE
+        IF(%#cml_max_dura% >= %#minimum_durability%)
+            SLOT(%#cml_max_slot%)
+        ELSE
+            &warn = "&a[cml]&7 Could not find %&tool% at or above %#min_durability_limit% durability"
+        ENDIF
+    ENDIF
+ENDIF

@@ -1,0 +1,204 @@
+// If we're looking at a mob, use local TRACE commands to find the center of the mob.  This is similar
+// to algorithms used for sonar object tracking in robotics.  Expects #max_trace_distance
+
+
+// The way it works is, we create an array of flags that corresponds to if the mob occupies a degree
+// on the horizontal searching area or not.  Then, we find the largest contiguous section of such true values.
+// Then we take the average of the left and right indices to get the center.  Then we do the same for pitch
+
+// Degrees to search left for the center
+#cml_search_yaw_left = 15
+
+// Degrees to search right for the center
+#cml_search_yaw_right = 15
+
+// Degrees to search up for the center
+#cml_search_pitch_up = 15
+
+// Degrees to search down for the center
+#cml_search_pitch_down = 15
+
+// Applies as multiplier for other options for efficiency purposes
+#cml_search_multiplier = 2
+
+// Degrees diagonal search
+#cml_search_diagonal = 15
+
+#cml_original_yaw = %CARDINALYAW%
+#cml_original_pitch = %PITCH%
+
+yes = false
+
+// Begin yaw refinement
+#cml_num_iterations = %#cml_search_yaw_left% + %#cml_search_yaw_right%
+
+LOOK(-%#cml_search_yaw_left%,+0)
+cml_yaw_entity_found = false
+FOR(#cml_i,0,%#cml_num_iterations%)
+
+	TRACE(%#max_trace_distance%,true)
+	IF(%TRACETYPE% == "ENTITY")
+		cml_yaw_entity_found = true
+		cml_mob_present[%#cml_i%] = true
+	ELSE
+		cml_mob_present[%#cml_i%] = false
+	ENDIF
+
+	LOOK(+1,+0)
+NEXT
+
+// Find largest contiguous region in array
+
+#cml_largest_size = 0
+#cml_largest_begin = 0
+
+#cml_current_begin = 0
+#cml_current_size = 0
+
+cml_in_section = false
+
+FOR(#cml_i,0,%#cml_num_iterations%)
+	IF(%cml_mob_present[%#cml_i%]%)
+		INC(#cml_current_size)
+
+		IF(!%cml_in_section%)
+			#cml_current_begin = %#cml_i%
+			cml_in_section = true
+		ENDIF
+	ELSE
+		IF(%#cml_current_size% > %#cml_largest_size%)
+			#cml_largest_size = %#cml_current_size%
+			#cml_largest_begin = %#cml_current_begin%
+		ENDIF
+
+		cml_in_section = false
+		#cml_current_size = 0
+	ENDIF
+NEXT
+
+IF(%#cml_current_size% > %#cml_largest_size%)
+	#cml_largest_size = %#cml_current_size%
+	#cml_largest_begin = %#cml_current_begin%
+ENDIF
+
+#cml_largest_size = (%#cml_largest_size% * 40) / 100
+
+// Finalize yaw refinement
+LOOK(-%#cml_num_iterations%,+0)
+LOOK(+%#cml_largest_begin%,+0)
+LOOK(+%#cml_largest_size%,+0)
+
+// If we never saw an entity, reset to original
+IF(!%cml_yaw_entity_found%)
+	LOOK(%#cml_original_yaw%,+0)
+ENDIF
+
+
+
+
+
+
+// Begin pitch refinement
+#cml_num_iterations = %#cml_search_pitch_down% + %#cml_search_pitch_up%
+
+LOOK(+0,-%#cml_search_pitch_up%)
+
+cml_pitch_entity_found = false
+FOR(#cml_i,0,%#cml_num_iterations%)
+
+	TRACE(%#max_trace_distance%,true)
+	IF(%TRACETYPE% == "ENTITY")
+		cml_pitch_entity_found = true
+		cml_mob_present[%#cml_i%] = true
+	ELSE
+		cml_mob_present[%#cml_i%] = false
+	ENDIF
+
+	LOOK(+0,+1)
+NEXT
+
+// Find largest contiguous region in array
+
+#cml_largest_size = 0
+#cml_largest_begin = 0
+
+#cml_current_begin = 0
+#cml_current_size = 0
+
+cml_in_section = false
+
+FOR(#cml_i,0,%#cml_num_iterations%)
+	IF(%cml_mob_present[%#cml_i%]%)
+		INC(#cml_current_size)
+
+		IF(!%cml_in_section%)
+			#cml_current_begin = %#cml_i%
+			cml_in_section = true
+		ENDIF
+	ELSE
+		IF(%#cml_current_size% > %#cml_largest_size%)
+			#cml_largest_size = %#cml_current_size%
+			#cml_largest_begin = %#cml_current_begin%
+		ENDIF
+
+		cml_in_section = false
+		#cml_current_size = 0
+	ENDIF
+NEXT
+
+IF(%#cml_current_size% > %#cml_largest_size%)
+	#cml_largest_size = %#cml_current_size%
+	#cml_largest_begin = %#cml_current_begin%
+ENDIF
+
+#cml_largest_size = (%#cml_largest_size% * 30) / 100
+
+// Finalize pitch refinement
+LOOK(+0,-%#cml_num_iterations%)
+LOOK(+0,+%#cml_largest_begin%)
+LOOK(+0,+%#cml_largest_size%)
+
+// If we never saw an entity, reset to original
+IF(!%cml_pitch_entity_found%)
+	LOOK(+0,%#cml_original_pitch%)
+ENDIF
+
+
+
+// If any entity is found, return yes
+IF(%cml_yaw_entity_found% || %cml_pitch_entity_found%)
+	yes = true
+ELSE
+	// If we haven't found any entities, we can try one more thing: diagonal search
+	cml_diagonal_entity_found = false
+	LOOK(-%#cml_search_diagonal%,-%#cml_search_diagonal%)
+	FOR(#cml_i,0,%#cml_search_diagonal%)
+		TRACE(%#max_trace_distance%,true)
+		IF(%TRACETYPE% == "ENTITY")
+			cml_diagonal_entity_found = true
+			BREAK
+		ENDIF
+
+		LOOK(+1,+1)
+	NEXT
+
+	IF(!%cml_diagonal_entity_found%)
+		LOOK(%#cml_original_yaw%,%#cml_original_pitch%)
+
+		cml_diagonal_entity_found = false
+		LOOK(-%#cml_search_diagonal%,+%#cml_search_diagonal%)
+		FOR(#cml_i,0,%#cml_search_diagonal%)
+			TRACE(%#max_trace_distance%,true)
+			IF(%TRACETYPE% == "ENTITY")
+				cml_diagonal_entity_found = true
+				BREAK
+			ENDIF
+
+			LOOK(+1,-1)
+		NEXT
+	ENDIF
+
+	IF(!%cml_diagonal_entity_found%)
+		LOOK(%#cml_original_yaw%,%#cml_original_pitch%)
+	ENDIF
+ENDIF

@@ -1,0 +1,11 @@
+// Given (#a,#a_d), return #a which is then floored result
+
+IF(%#a_d% > 0)
+	#divisor = 1
+	FOR(#i,1,%#a_d%)
+		#divisor = %#divisor% * 10
+	NEXT
+
+	#a = %#a% / %#divisor%
+	#a_d = 0
+ENDIF

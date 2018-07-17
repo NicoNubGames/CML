@@ -1,0 +1,18 @@
+// Dead simple utility script that turns around and sprint jumps for a specified amount of time
+// Used to retreat from dangerous situations before recovering
+
+// TODO: Prevent the amusing possible scenario of the bot jumping off a cliff while retreating
+
+LOOK(+180,+0)
+
+DO(%#time%)
+    KEYDOWN(forward)
+    KEYDOWN(jump)
+    SPRINT
+    $$<CML_snapYaw.txt>
+    WAIT(1t)
+LOOP
+
+LOOK(+180,0)
+KEYUP(forward)
+KEYUP(jump)

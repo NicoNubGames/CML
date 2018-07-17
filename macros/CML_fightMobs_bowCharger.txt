@@ -1,0 +1,13 @@
+// Small syncronous script to charge the bow, to prevent lag from interfering from charging bows
+
+UNSAFE(0)
+
+DO
+	IF(@charge_bow)
+		KEY(use)
+	ENDIF
+
+	WAIT(1t)
+LOOP
+
+ENDUNSAFE

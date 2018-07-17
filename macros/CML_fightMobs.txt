@@ -1,0 +1,242 @@
+// Will fight mobs with the tools on hand until no mobs are detected for a certain time
+
+// Time mob_tracking needs to be false in order to end the battle
+#cml_fight_cooldown = 20
+
+// Time interval at which to a coarse scan for mobs.
+#cml_mobscan_interval = 10
+
+// If health is below give up on the fight and set a &warn to user
+#cml_minimum_health = 15
+
+// How long to charge the bow for a shot
+#cml_bow_charge_time = 10
+
+// How long after shooting to wait to charge arrow again
+#cml_bow_wait_time = 1
+
+// Ignore mobs beyond this distance
+#cml_max_trace_distance = 10
+
+// Granularity of coarse mob search if we lose tracking
+#cml_yaw_search_delta = 25
+
+// Granularity of coarse mob search if we lose tracking
+#cml_yaw_pitch_delta = 25
+
+// Lowest bow durability tolerated before entering weapon mode
+#cml_minimum_bow_durability = 10
+
+// Frequency at which to refine crosshair
+#cml_refinement_frequency = 2
+
+// Valid weapons in order of preference.  If there are no weapons, use whatever you're holding.
+// If you have a bow & arrows, that overrides this priority list
+&cml_weapons = "diamond_sword iron_sword golden_sword stone_sword wooden_sword diamond_axe iron_axe diamond_pickaxe iron_pickaxe diamond_shovel iron_shovel"
+
+
+// Start syncronous bowcharging, control using @charge_bow
+STOP("bowcharger")
+EXEC("CML_fightMobs_bowCharger.txt","bowcharger")
+
+// Check if we have bows and arrows, and if so, how many
+&items = "bow arrow spectral_arrow tipped_arrow"
+$$<CML_countInventoryItems.txt>
+
+// If we have a bow, enter "bow-fighting mode"
+cml_bow_mode = false
+
+IF(%#counts[0]% > 0)
+	// Keep track of how many arrows we have during the fight, if we run out, we need to switch to weapons
+	#cml_arrows_count = %#counts[1]% + %#counts[2]% %#counts[3]%
+
+	IF(%#cml_arrows_count% > 0)
+		cml_bow_mode = true
+	ENDIF
+ENDIF
+
+cml_mob_is_gone = false
+
+// Scan for mobs on initial start
+#cml_t_mobscan = %#cml_mobscan_interval%
+
+#cml_t_chargebow = 0
+#cml_t_waitbow = 0
+cml_bow_charging = false
+
+cml_tracking_mob = false
+
+// Allow refinement tracker one shot at start, but then switch to coarse
+#cml_t_not_tracking = 0
+
+#cml_t_crosshair = 0
+
+#cml_pitch_correction = 0
+
+IF(%cml_bow_mode%)
+	DO
+		// If current item is not bow, confirm we still have one
+		IF(%ITEM% != "bow")
+			PICK("bow")
+			WAIT(1t)
+
+			&items = "bow"
+			$$<CML_countInventoryItems.txt>
+			
+			// If no bow exists in inventory, break and enter weapon mode
+			IF(%#counts[0]% == 0)
+				BREAK
+			ENDIF
+		ENDIF
+
+		// If we haven't seen the mob for long enough, end the battle
+		IF(%#cml_t_not_tracking% >= %#cml_fight_cooldown%)
+			cml_mob_is_gone = true
+			BREAK
+		ENDIF
+
+		// If we run out of arrows, enter weapon mode
+		IF(%#cml_arrows_count% == 0)
+			BREAK
+		ENDIF
+
+		// If we're currently holding a bow, and we have seen evidence of a mob, shoot at it
+		IF(%ITEM% == "bow")
+			IF((%cml_bow_charging%) && (%cml_mob_tracking%))
+				@charge_bow = true
+
+				// If we've charged it long enough, switch to waiting mode only if mob_tracking is on
+				IF(%#cml_t_chargebow% >= %#cml_bow_charge_time%)
+					IF(%cml_mob_tracking%)
+						#cml_t_chargebow = 0
+						cml_bow_charging = false
+
+						// Switching to waiting mode is equivalent to firing
+						DEC(#cml_arrows_count)
+					ENDIF
+				ELSE
+					INC(#cml_t_chargebow)
+				ENDIF
+
+			ELSE
+				@charge_bow = false
+				// Wait until bow cooldown waiting is over, and until we track a mob
+				IF((%#cml_t_waitbow% >= %#cml_bow_wait_time%) && (%cml_mob_tracking%))
+					#cml_t_waitbow = 0
+					cml_bow_charging = true
+				ELSE
+					INC(#cml_t_waitbow)
+				ENDIF
+			ENDIF
+		ENDIF
+
+		// If our bow is going to break, enter weapon mode
+		IF((%ITEM% == "bow") && (%DURABILITY% < %#cml_minimum_bow_durability%))
+			BREAK
+		ENDIF
+
+		// If a coarse mobscan is scheduled, do it
+		IF(%#cml_t_mobscan% >= %#cml_mobscan_interval%)
+			$$<CML_scanForMobs.txt>
+			IF(%yes%)
+				LOOK(%#mob_yaw%,%#mob_pitch%)
+			ENDIF
+
+			#cml_t_mobscan = 0
+		ENDIF
+
+		// Refine our crosshair using local optimization
+		IF(%#cml_t_crosshair% >= %#cml_refinement_frequency%)
+			#cml_t_crosshair = 0
+			$$<CML_refineCrosshair.txt>
+			IF(%yes%)
+				cml_mob_tracking = true
+				#cml_t_not_tracking = 0
+				
+				// Add height offset based on euclidean distance.
+				TRACE(%#cml_max_trace_distance%,true)
+
+				// Calculate x and z offset, assign to #a and #b
+				#a = %TRACEX% - %XPOS%
+				#a_d = 0
+
+				#b = %TRACEZ% - %ZPOS%
+				#b_d = 0
+
+				IF(%#a% < 0)
+					#a = -%#a%
+				ENDIF
+
+				IF(%#b% < 0)
+					#b = -%#b%
+				ENDIF
+
+				// a^2 --> a
+				#a = %#a% * %#a%
+
+				// b^2 --> b
+				#b = %#b% * %#b%
+
+				// a^2 + b^2 --> a
+				#a = %#a% + %#b%
+
+				// sqrt(a^2 + b^2) --> (#a, #a_d)
+				$$<CML_sqrt.txt>
+
+				// LOG(%#a% %#a_d%)
+
+				// 0.25 * hypot(a,b) --> (#a, #a_d)
+				#b = 55
+				#b_d = 2
+				$$<CML_multiply.txt>
+
+				// LOG(%#a%)
+
+				// floor(20 * hypot(a,b) --> #a
+				$$<CML_floor.txt>
+
+				#cml_pitch_correction = %#a%
+
+				// LOG(%#cml_pitch_correction%)
+
+			ELSE
+				INC(#cml_t_not_tracking)
+				cml_mob_tracking = false
+				@charge_bow = false
+				#cml_pitch_correction = 0
+			ENDIF
+		ENDIF
+
+		INC(#cml_t_mobscan)
+		INC(#cml_t_crosshair)
+
+		// Apply pitch correction just before, and remove it just after, so it doesn't interfere with tracking
+		#cml_saved_yaw = %CARDINALYAW%
+		#cml_saved_pitch = %PITCH%
+
+		IF(%#cml_pitch_correction% <= 40)
+			LOOK(+0,-%#cml_pitch_correction%)
+		ENDIF
+
+		WAIT(1t)
+		LOOK(%#cml_saved_yaw%,%#cml_saved_pitch%)
+	LOOP
+ENDIF
+
+@charge_bow = false
+
+// If the mob is not gone yet by the time to break from bow mode, attack in weapon mode
+IF(!%cml_mob_is_gone%)
+
+	// TODO: Build logic for handling swords instead of bows
+
+	DO
+
+
+		WAIT(1t)
+		STOP
+	LOOP
+
+ENDIF
+
+LOG("done with fight")

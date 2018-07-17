@@ -1,0 +1,31 @@
+// Given #a, return (#a, #a_d) which is the sqrt of #a.  Another holy grail shattered
+
+// How many decimal places we calculate to
+#cml_decimal_places = 3
+
+// Find the maximal integer #i whose square is less than or equal to #a
+FOR(#cml_i,1,%#a%)
+	#cml_square = %#cml_i% * %#cml_i%
+
+	IF(%#cml_square% >= %#a%)
+		DEC(#cml_i)
+		BREAK
+	ENDIF
+NEXT
+
+#cml_x = %#a%
+
+FOR(#cml_j,1,%#cml_decimal_places%)
+	#cml_x = %#cml_x% * 100
+	#cml_i = %#cml_i% * 10
+
+	DO
+		INC(#cml_i)
+		#cml_square = %#cml_i% * %#cml_i%
+	UNTIL(%#cml_square% >= %#cml_x%)
+	DEC(#cml_i)
+NEXT
+
+// #i is now the sqrt as an integer.  We need to make a & of it and insert decimal
+#a = %#cml_i%
+#a_d = %#cml_decimal_places%

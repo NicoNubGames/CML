@@ -1,0 +1,12 @@
+// For &block, return whether it is a shovel block via the %yes% flag
+
+&cml_shovel_blocks = "dirt sand gravel clay grass"
+&cml_shovel_blocks[] = SPLIT(" ",%&cml_shovel_blocks%)
+
+yes = false
+FOREACH(&cml_shovel_blocks,&cml_block)
+    IF(&block == %&cml_block%)
+        yes = true
+        BREAK
+    ENDIF
+NEXT

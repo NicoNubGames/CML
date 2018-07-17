@@ -1,0 +1,83 @@
+// Utility that scans for mobs (or players) within visual range.
+// Expects: #max_trace_distance, yaw_search_delta, pitch_search_delta
+// Sets variables yes, #mob_yaw, #mob_pitch.  We need to balance between visual acuity, responsiveness, 
+// and resource utilization, because this is a very expensive process.
+
+// Pitch to search horizon at
+#horizon_pitch = 6
+
+// Granularity of horizon search
+#horizon_search_delta = 3
+
+// Upper bound on pitch scanning
+#cml_pitch_upper_limit = 345
+
+// Lower bound on pitch scanning range
+#cml_pitch_lower_limit = 63
+
+#cml_saved_yaw = %CARDINALYAW%
+#cml_saved_pitch = %PITCH%
+
+// Initialize return values
+yes = false
+#mob_yaw = 0
+#mob_pitch = 0
+
+yes = false
+
+// Scan through all yaw/pitch vectors wrt. delta
+#cml_yaw = 0
+DO
+	#cml_pitch = 0
+	DO
+		LOOK(%#cml_yaw%,%#cml_pitch%)
+
+		TRACE(%#max_trace_distance%,true)
+
+		IF(%TRACETYPE% == "ENTITY")
+			yes = true
+			BREAK
+		ENDIF
+
+		// Patch together macromod's strange pitch range
+		#cml_pitch = %#cml_pitch% + %#pitch_search_delta%
+		IF((%#cml_pitch% >= %#cml_pitch_lower_limit%) && (%#cml_pitch% < 270))
+			#cml_pitch = %#cml_pitch_upper_limit%
+		ENDIF
+	UNTIL(%#cml_pitch% >= 360)
+
+	IF(%yes%)
+		BREAK
+	ENDIF
+
+	#cml_yaw = %#cml_yaw% + %#yaw_search_delta%
+UNTIL(%#cml_yaw% >= 360)
+
+IF(%yes%)
+	#mob_yaw = %#cml_yaw%
+	#mob_pitch = %#cml_pitch%
+ELSE
+	// If the traditional search didn't work, try a high-density horizon search
+
+	#cml_yaw = 0
+	#cml_pitch = %#horizon_pitch%
+	DO
+		LOOK(%#cml_yaw%,%#cml_pitch%)
+
+		TRACE(%#max_trace_distance%,true)
+
+		IF(%TRACETYPE% == "ENTITY")
+			yes = true
+			BREAK
+		ENDIF
+
+		#cml_yaw = %#cml_yaw% + %#horizon_search_delta%
+	UNTIL(%#cml_yaw% >= 359)
+
+	IF(%yes%)
+		#mob_yaw = %#cml_yaw%
+		#mob_pitch = %#cml_pitch%
+	ENDIF
+ENDIF
+
+LOOK(%#cml_saved_yaw%,%#cml_saved_pitch%)

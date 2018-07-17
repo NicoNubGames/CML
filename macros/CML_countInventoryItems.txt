@@ -1,0 +1,30 @@
+// Given &items, builds an array #counts[] composed of the sum amounts of each type of item
+
+// Split given string into array
+&items[] = SPLIT(" ",%&items%)
+
+// Build resulting numerical array
+#cml_i = 0
+FOREACH(&items,&cml_item)
+	#counts[%#cml_i%] = 0
+	INC(#cml_i)
+NEXT
+
+// Loop through inventory
+GUI(inventory)
+#cml_j = 0
+FOR(#cml_i,9,44)
+	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size,#cml_dura)
+
+	// If id matches with item, add amount to sum for that entry
+	#cml_j = 0
+	FOREACH(&items,&cml_item)
+		IF(%&cml_id% == %&cml_item%)
+			#counts[%#cml_j%] = %#counts[%#cml_j%]% + %#cml_size%
+			BREAK
+		ENDIF
+
+		INC(#cml_j)
+	NEXT
+NEXT
+GUI
