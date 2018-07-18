@@ -1,0 +1,287 @@
+// Generalized script for walking forward and breaking blocks in various patterns.  Intended to be an extremely generalized solution to
+// all horizontal digging projects.
+
+UNSAFE(0)
+
+// Which block to build the bridge with, if an air gap occurs in floor
+&build_bridge_block = "cobblestone"
+
+// Minimum durability limit, such that we stop if we can't find a tool not below this limit
+#min_durability_limit = 50
+
+// List of blocks to ignore and not break
+&ignore_blocks = "air rail powered_rail redstone_torch lever button fence"
+
+// List of blocks to super-avoid, and stop when encountered
+&avoid_blocks = "water lava flowing_lava"
+
+// Optional parameter to stop when we reach a specific coordinate (the one in direction of walking)
+#stop_coordinate = 965
+
+// How often to inspect blocks for new block
+#block_inspection_frequency = 5
+
+// Do we want to scan for mobs?  If on a slow computer, you should set this to false
+scan_for_mobs = false
+
+// Will you stand and fight, or run like a coward?
+fight = false
+
+// If you do run from mobs, how many ticks do you do so?
+#mob_run_time = 400
+
+// Time interval at which to scan for mobs.  It's a bit expensive, so we don't do it every tick
+#mobscan_interval = 10
+
+// Ignore mobs beyond this distance
+#max_trace_distance = 10
+
+// Granularity of coarse mob search if we lose tracking
+#yaw_search_delta = 25
+
+// Granularity of coarse mob search if we lose tracking
+#pitch_search_delta = 25
+
+
+&ignore_blocks[] = SPLIT(" ",%&ignore_blocks%)
+&avoid_blocks[] = SPLIT(" ",%&avoid_blocks%)
+
+$$<CML_snapYaw.txt>
+
+// The logic is inverted here because of directional considerations
+IF((%DIRECTION% == "N") || (%DIRECTION% == "S"))
+    &axis = "z"
+ELSEIF((%DIRECTION% == "E") || (%DIRECTION% == "W"))
+    &axis = "x"
+ENDIF
+
+SET(prev_done)
+#saved_yaw = %CARDINALYAW%
+
+// Ensure first check will always say block changed
+#pos_x = %XPOS% - 1
+#pos_z = %ZPOS% - 1
+
+#t_mobscan = 0
+#t_blocks = 0
+
+DO
+    // If we're in a new block, update our block positions
+    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+
+        // Change the following line to choose a different block pattern
+        $$<digBot_3x3blockPattern.txt>
+
+        #pos_x = %XPOS%
+        #pos_z = %ZPOS%
+    ENDIF
+
+    // If the user presses grave key, stop
+    IF(%KEY_GRAVE%)
+        KEYUP(forward)
+        LOG("&a[dig]&7 Manually stopping due to grave key press")
+        STOP
+    ENDIF
+
+    // If we're at our stop coordinate, stop
+    at_stop_coordinate = false
+    IF(%&axis% == "x")
+        IF(%XPOS% == %#stop_coordinate%)
+            at_stop_coordinate = true
+        ENDIF
+    ELSE
+        IF(%ZPOS% == %#stop_coordinate%)
+            at_stop_coordinate = true
+        ENDIF
+    ENDIF
+
+    IF(%at_stop_coordinate%)
+        KEYUP(forward)
+        LOG("&a[dig]&7 Stopping due to reaching stop coordinate at %XPOS% %YPOS% %ZPOS%")
+        STOP
+    ENDIF
+
+    // If it's scheduled, scan for mobs.  Either run away and stop, or stand and fight with whatever weapons you have
+    IF((%#t_mobscan% >= %#mobscan_interval%) && (%scan_for_mobs%))
+        #t_mobscan = 0
+        #yaw_before = %CARDINALYAW%
+        #pitch_before = %PITCH%
+        $$<CML_scanForMobs.txt>
+        IF(%yes%)
+            &name = %TRACENAME%
+            #trace_x = %TRACEX%
+            #trace_y = %TRACEY%
+            #trace_z = %TRACEZ%
+            IF(%fight%)
+                LOG("&a[dig]&7 Fighting %&name% at %#trace_x% %#trace_y% %#trace_y%.  Wish me luck!")
+
+                $$<CML_fightMobs.txt>
+
+                IF(%&warn%)
+                    // We're losing this battle, run!!!
+                    LOG("&a[dig]&7 Losing the battle against %&name%, and am running away")
+
+                    // Run away for for some time before stopping
+                    #time = %#mob_run_time%
+                    $$<CML_retreat.txt>
+
+                    LOOK(%#yaw_before%,%#pitch_before%)
+                    STOP
+                ELSE
+                    LOG("&a[dig]&7 I won the fight against %&name%, will continue")
+                ENDIF
+            ELSE
+                LOG("&a[dig]&7 Fleeing due to encountering %&name% at %#trace_x% %#trace_y% %#trace_y%")
+                // Run away for 20 seconds before stopping
+                #time = %#mob_run_time%
+                $$<CML_retreat.txt>
+                STOP
+            ENDIF
+        ENDIF
+    ENDIF
+
+    // If any block or its neighbor on is an avoid block, run backwards 3 seconds and stop
+    FOR(#i,0,%#neighbor_end%)
+        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+
+        is_avoid_block = false
+        FOREACH(&avoid_blocks,&block)
+            IF(%&id% == %&block%)
+                is_avoid_block = true
+                BREAK
+            ENDIF
+        NEXT
+
+        IF(%is_avoid_block%)
+            KEYUP(forward)
+            LOG("&a[dig]&7 Stopping due to encountered %&id% at %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]%")
+
+            #time = 15
+            $$<CML_retreat.txt>
+
+            WAIT(1t)
+            STOP
+        ENDIF
+    NEXT
+
+    // Look at the first non-ignored block in the set
+    IF(%#t_blocks% >= %#block_inspection_frequency%)
+        SET(done)
+        FOR(#i,0,%#block_end%)
+            GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+
+            // Skip block if it is an ignore block
+            is_ignore_block = false
+            FOREACH(&ignore_blocks,&block)
+                IF(%&id% == %&block%)
+                    is_ignore_block = true
+                    BREAK
+                ENDIF
+            NEXT
+
+            IF(!%is_ignore_block%)
+                LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+                UNSET(done)
+                BREAK
+            ENDIF
+        NEXT
+    ENDIF
+
+    // Pick whichever tool is most effective for the block we're currently looking at
+    &block = %HITID%
+    $$<CML_pickBestTool.txt>
+
+    IF(%&warn% != "")
+        KEYUP(forward)
+        &warn = "&a[dig]&7 Stopping due to %&warn%"
+        LOG(%&warn%)
+        STOP
+    ENDIF
+
+    // If we are just beginning a break-round, save our yaw for when we finish this layer
+    IF(prev_done && done)
+        #saved_yaw = %YAW% + 180
+    ENDIF
+
+    // If we're done with this layer, walk forward until a new layer is encountered
+    IF(done)
+
+        // If the block in front of us is air, attempt to make a block in front of us (bridge)
+        IF(%DIRECTION% = "N")
+            #bridge_x = (%XPOS% + 0)
+            #bridge_y = (%YPOS% - 1)
+            #bridge_z = (%ZPOS% - 1)
+            #bridge_yaw = 358
+            #bridge_pitch = 59
+        ELSEIF(%DIRECTION% = "E")
+            #bridge_x = (%XPOS% + 1)
+            #bridge_y = (%YPOS% - 1)
+            #bridge_z = (%ZPOS% + 0)
+            #bridge_yaw = 448
+            #bridge_pitch = 59
+        ELSEIF(%DIRECTION% = "S")
+            #bridge_x = (%XPOS% + 0)
+            #bridge_y = (%YPOS% - 1)
+            #bridge_z = (%ZPOS% + 1)
+            #bridge_yaw = 538
+            #bridge_pitch = 59
+        ELSEIF(%DIRECTION% = "W")
+            #bridge_x = (%XPOS% - 1)
+            #bridge_y = (%YPOS% - 1)
+            #bridge_z = (%ZPOS% + 0)
+            #bridge_yaw = 268
+            #bridge_pitch = 59
+        ENDIF
+
+        GETID(%#bridge_x%,%#bridge_y%,%#bridge_z%,&id)
+
+        IF(%&id% == "air")
+            LOOK(%#saved_yaw%,8)
+            PICK(%&build_bridge_block%)
+            KEYDOWN(sneak)
+            KEYDOWN(forward)
+            WAIT(20t)
+
+            // Check if we have any of the bridge building material
+            IF(%ITEM% != %&build_bridge_block%)
+                KEYUP(forward)
+                LOG("&a[dig]&7 Stopping due to running out of %&build_bridge_block% for bridge")
+                STOP
+            ENDIF
+
+            KEYUP(forward)
+            KEYDOWN(back)
+            WAIT(2t)
+            KEYUP(back)
+            KEYUP(sneak)
+            WAIT(1t)
+            LOOK(+180,83)
+            WAIT(1t)
+            KEY(use)
+            WAIT(1t)
+            LOOK(%#saved_yaw%,8)
+            WAIT(1t)
+        ENDIF
+
+        // Look in our original direction
+        LOOK(%#saved_yaw%,+0)
+        KEYDOWN(forward)
+        SPRINT
+
+        $$<CML_snapYaw.txt>
+        $$<CML_centerSelf.txt>
+    ELSE
+        // Attack and stop walking if we are still on a layer
+        KEY(attack)
+        KEYUP(forward)
+    ENDIF
+
+    prev_done = done
+    INC(#t_mobscan)
+    INC(#t_blocks)
+
+    $$<CML_eatFood.txt>
+
+    WAIT(1t)
+LOOP
+ENDUNSAFE

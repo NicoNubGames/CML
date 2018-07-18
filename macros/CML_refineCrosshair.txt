@@ -7,19 +7,19 @@
 // Then we take the average of the left and right indices to get the center.  Then we do the same for pitch
 
 // Degrees to search left for the center
-#cml_search_yaw_left = 15
+#cml_search_yaw_left = 10
 
 // Degrees to search right for the center
-#cml_search_yaw_right = 15
+#cml_search_yaw_right = 10
 
 // Degrees to search up for the center
-#cml_search_pitch_up = 15
+#cml_search_pitch_up = 10
 
 // Degrees to search down for the center
-#cml_search_pitch_down = 15
+#cml_search_pitch_down = 10
 
 // Applies as multiplier for other options for efficiency purposes
-#cml_search_multiplier = 2
+#cml_search_multiplier = 3
 
 // Degrees diagonal search
 #cml_search_diagonal = 15

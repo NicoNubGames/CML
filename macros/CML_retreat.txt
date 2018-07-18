@@ -9,7 +9,7 @@ DO(%#time%)
     KEYDOWN(forward)
     KEYDOWN(jump)
     SPRINT
-    $$<CML_snapYaw.txt>
+	$$<CML_snapYaw.txt>
     WAIT(1t)
 LOOP
 

@@ -16,7 +16,7 @@
 #cml_bow_wait_time = 1
 
 // Ignore mobs beyond this distance
-#cml_max_trace_distance = 10
+#max_trace_distance = 10
 
 // Granularity of coarse mob search if we lose tracking
 #cml_yaw_search_delta = 25
@@ -72,6 +72,9 @@ cml_tracking_mob = false
 #cml_t_crosshair = 0
 
 #cml_pitch_correction = 0
+
+#cml_last_seen_x = 0
+#cml_last_seen_z = 0
 
 IF(%cml_bow_mode%)
 	DO
@@ -154,13 +157,19 @@ IF(%cml_bow_mode%)
 				#cml_t_not_tracking = 0
 				
 				// Add height offset based on euclidean distance.
-				TRACE(%#cml_max_trace_distance%,true)
+				TRACE(%#max_trace_distance%,true)
+
+				// Save new trace if valid, else use previously saved one
+				IF(%TRACETYPE% == "ENTITY")
+					#cml_last_seen_x = %TRACEX%
+					#cml_last_seen_z = %TRACEZ%
+				ENDIF
 
 				// Calculate x and z offset, assign to #a and #b
-				#a = %TRACEX% - %XPOS%
+				#a = %#cml_last_seen_x% - %XPOS%
 				#a_d = 0
 
-				#b = %TRACEZ% - %ZPOS%
+				#b = %#cml_last_seen_z% - %ZPOS%
 				#b_d = 0
 
 				IF(%#a% < 0)
@@ -185,8 +194,8 @@ IF(%cml_bow_mode%)
 
 				// LOG(%#a% %#a_d%)
 
-				// 0.25 * hypot(a,b) --> (#a, #a_d)
-				#b = 55
+				// 0.K * hypot(a,b) --> (#a, #a_d)
+				#b = 85
 				#b_d = 2
 				$$<CML_multiply.txt>
 
@@ -194,6 +203,8 @@ IF(%cml_bow_mode%)
 
 				// floor(20 * hypot(a,b) --> #a
 				$$<CML_floor.txt>
+
+				// LOG(%#a%)
 
 				#cml_pitch_correction = %#a%
 
@@ -214,6 +225,7 @@ IF(%cml_bow_mode%)
 		#cml_saved_yaw = %CARDINALYAW%
 		#cml_saved_pitch = %PITCH%
 
+		// LOG(%#cml_pitch_correction%)
 		IF(%#cml_pitch_correction% <= 40)
 			LOOK(+0,-%#cml_pitch_correction%)
 		ENDIF
@@ -229,14 +241,9 @@ ENDIF
 IF(!%cml_mob_is_gone%)
 
 	// TODO: Build logic for handling swords instead of bows
-
 	DO
-
-
 		WAIT(1t)
 		STOP
 	LOOP
 
 ENDIF
-
-LOG("done with fight")
