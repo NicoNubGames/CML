@@ -1,6 +1,6 @@
 // For &block, return whether it is a pickaxe block via the %yes% flag
 
-&cml_pick_blocks = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone stained_hardened_clay hardened_clay"
+&cml_pick_blocks = "stone redstone_ore lit_redstone_ore lapis_ore gold_ore coal_ore iron_ore diamond_ore cobblestone stained_hardened_clay hardened_clay obsidian"
 &cml_pick_blocks[] = SPLIT(" ",%&cml_pick_blocks%)
 
 yes = false

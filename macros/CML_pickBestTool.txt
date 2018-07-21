@@ -28,18 +28,16 @@ IF(%&cml_tool% != "")
     #cml_max_dura = 0
     FOR(#i,1,9)
         SLOT(%#i%)
-        IF(%ITEM% == %&cml_tool%)
-            IF(%DURABILITY% >= %#minimum_durability%)
-                #cml_max_dura = %DURABILITY%
-                #cml_max_slot = %#i%
-            ENDIF
+        IF((%ITEM% == %&cml_tool%) && (%DURABILITY% > %#cml_max_dura%))
+            #cml_max_dura = %DURABILITY%
+            #cml_max_slot = %#i%
         ENDIF
     NEXT
 
     IF(%#cml_max_slot% == 0)
         &warn = "&a[cml]&7 Could not find %&cml_tool%"
     ELSE
-        IF(%#cml_max_dura% >= %#minimum_durability%)
+        IF(%#cml_max_dura% >= %#min_durability_limit%)
             SLOT(%#cml_max_slot%)
         ELSE
             &warn = "&a[cml]&7 Could not find %&tool% at or above %#min_durability_limit% durability"

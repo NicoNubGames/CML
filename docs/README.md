@@ -7,15 +7,35 @@
 
 Some scripts are intended to be used independently, while others are simply **building blocks**. These building blocks allow for progressively more sophisticated behavior, until we have a highly nested structure that gives rise to **complex and robust automation**.
 
-As well, CML includes some other utilities that are external to macromod itself, but still potentially useful.
+As well, CML includes some other utilities that are external to macromod itself, but still potentially useful, such as **automatic code generators**, **compilers**, and **auto-restart scripts**.
 
 ## Installation
 
 The \*.txt scripts should be placed in **%appdata%\.minecraft\liteconfig\common\macros**
 
-After that, the scripts may be bounded to either keys or events using the macromod GUI. For specifics, please the [set of tutorials](http://mkb.gorlem.ml/tutorial).
+After that, the scripts may be bounded to either keys or events using the macromod GUI. For specifics, consult on of the resources of the [Introductory Resources](https://github.com/poteat/CML/wiki/Introductory-Macromod-Learning-Resources) page.
 
-## Curated Scripts
+## CML Standard Library
+
+These scripts are intended to be building blocks for other scripts, modular functions that make complex behavior easier to manage.
+
+| Script                  | Description                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| CML_centerSelf          | Novel script that centers a bot exactly on the left/right center of the current block by simulating floating point math. |
+| CML_close               | Closes an openable block (e.g. chest, furace...) robustly.                                                               |
+| CML_countInventoryItems | Given a set of items, returns the total number of each item in the inventory and hotbar as an array.                     |
+| CML_eatFood             | If hunger is below a threshold, eat any food on hand based on a priority list.                                           |
+| CML_fightMobs           | Scan for nearby mobs and fight them using a bow or a sword depending on what is available.                               |
+| CML_floor               | Mathematical floor function that takes in standard-formatted float values                                                |
+| CML_isAxeBlock          | Returns whether &block is optimally mined with an axe or not                                                             |
+| CML_isPickBlock         | Returns whether &block is optimally mined with an pick or not                                                            |
+| CML_isShovelBlock       | Returns whether &block is optimally mined with an shovel or not                                                          |
+| CML_multiply            | Multiplies two standard-formmated float values into a new float value                                                    |
+| CML_onChat              | Sets a global flag on snitch events less than a specified distance away, and logs all snitch events to a file.           |
+| CML_onJoinGame          | Handler than runs pre-specified scripts on game join, unless manual user control is detected within 10 seconds.          |
+| CML_open                | Opens an "openable" block (e.g. chest), waiting until a GUI is detected before returning.                                |
+
+## Scripts
 
 | Script              | Description                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,15 +65,3 @@ After that, the scripts may be bounded to either keys or events using the macrom
 | coordinate_parser    | A C++ program that compiles a coordinate list (from addToCoordinateList) to a macromod data script that is used to specify **bulk relative coordinates** and **yaw/pitch vectors** that are independent with respect to the bot's cardinal direction. |
 | remote_hosting_tools | Various programs, batch files, and instructions on how to create persistent, **graphics-enabled sessions** on either other user accounts, or a remote Windows machine.                                                                                |
 | restart_mc           | An **autohotkey** script that will restart the Minecraft client and autojoin a specified server.                                                                                                                                                      |
-
-## Q & A
-
-**Why are some scripts marked with CML\_ and others aren't?**
-
-The "CML\_" marker is only afforded to the scripts that are modular and useful enough to get library status. Especially scripts which are meant to be building blocks.
-
-## Deprecation Notice
-
-To clean this repository up, a large number of scripts were moved into the "deprecated" folder under macros. Many of these were 1-off, or designed with an out-dated philosophy that doesn't mesh well with the current generation of scripts.
-
-They are still available as I hate to delete anything, as there is still a dearth of good publicly-available macromod code. However, they might be difficult to get working.
