@@ -22,7 +22,7 @@ ENDIF
 IF(%&cml_tool% != "")
     // If we have a tool not in hotbar but in inventory, move it to hotbar
     PICK(%&cml_tool%)
-
+    
     // Loop through hotbar and find tool with best durability
     #cml_max_slot = 0
     #cml_max_dura = 0
