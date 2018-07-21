@@ -1,7 +1,22 @@
 // Generalized script for walking forward and breaking blocks in various patterns.  Intended to be an extremely generalized solution to
 // all horizontal digging projects.
 
-UNSAFE(0)
+// * Breaks blocks in the form of **arbitrary block patterns** while sprinting forward
+// * Auto-selects best tool to use, from diamond to stone TODO
+// * Will require silk touch to mine diamond ore, or else will stop TODO
+// * Will stop before breaking tools
+// * Automatically stop at a user-specified coordinate
+// * **Builds bridges** to avoid falling into air gaps
+// * Runs away from **lava** and water, and optionally any user-specified block
+// * Will not attempt to break rails, torches, or any other user-specified block
+// * Will optionally either **stop or disconnect** when an event occurs TODO
+// * Logs all events to a **digbot_events.txt** log TODO
+// * Scans for mobs, and optionally either runs away or fights them (runs by default)
+// * If fighting mobs, will use a bow if the closest enemy is far, and a sword if close TODO
+// * If enabled, will automatically place torches every certain number of blocks TODO
+// * Supports Discord webhook integration so you can monitor the bot's status TODO
+
+// ALSO TODO: Make CML_retreat not run off of cliffs
 
 // Which block to build the bridge with, if an air gap occurs in floor
 &build_bridge_block = "cobblestone"
@@ -18,11 +33,11 @@ UNSAFE(0)
 // Optional parameter to stop when we reach a specific coordinate (the one in direction of walking)
 #stop_coordinate = 965
 
-// How often to inspect blocks for new block
-#block_inspection_frequency = 5
+// How often to inspect blocks for an avoidance condition
+#avoidance_inspection_frequency = 1
 
 // Do we want to scan for mobs?  If on a slow computer, you should set this to false
-scan_for_mobs = false
+scan_for_mobs = true
 
 // Will you stand and fight, or run like a coward?
 fight = false
@@ -43,6 +58,8 @@ fight = false
 #pitch_search_delta = 25
 
 
+UNSAFE(0)
+
 &ignore_blocks[] = SPLIT(" ",%&ignore_blocks%)
 &avoid_blocks[] = SPLIT(" ",%&avoid_blocks%)
 
@@ -59,21 +76,27 @@ SET(prev_done)
 #saved_yaw = %CARDINALYAW%
 
 // Ensure first check will always say block changed
+position_changed = false
 #pos_x = %XPOS% - 1
 #pos_z = %ZPOS% - 1
+
+hit_changed = false
+#hit_x = %HITX% - 1
+#hit_y = %HITY% - 1
+#hit_z = %HITZ% - 1
 
 #t_mobscan = 0
 #t_blocks = 0
 
 DO
-    // If we're in a new block, update our block positions
-    IF((%#pos_x%!=%XPOS%)||(%#pos_z%!=%ZPOS%))
+    // Detect X/Z positional change and hit position change
+    position_changed = ((%#pos_x% != %XPOS%) || (%#pos_z% != %ZPOS%))
+    hit_changed = ((%#hit_x% != %HITX%) || (%#hit_y% != %HITY%) || (%#hit_z% != %HITZ%))
 
+    // If position changed, update block pattern
+    IF(%position_changed%)
         // Change the following line to choose a different block pattern
         $$<digBot_3x3blockPattern.txt>
-
-        #pos_x = %XPOS%
-        #pos_z = %ZPOS%
     ENDIF
 
     // If the user presses grave key, stop
@@ -84,15 +107,10 @@ DO
     ENDIF
 
     // If we're at our stop coordinate, stop
-    at_stop_coordinate = false
     IF(%&axis% == "x")
-        IF(%XPOS% == %#stop_coordinate%)
-            at_stop_coordinate = true
-        ENDIF
+        at_stop_coordinate = (%XPOS% == %#stop_coordinate%)
     ELSE
-        IF(%ZPOS% == %#stop_coordinate%)
-            at_stop_coordinate = true
-        ENDIF
+        at_stop_coordinate = (%ZPOS% == %#stop_coordinate%)
     ENDIF
 
     IF(%at_stop_coordinate%)
@@ -101,11 +119,14 @@ DO
         STOP
     ENDIF
 
-    // If it's scheduled, scan for mobs.  Either run away and stop, or stand and fight with whatever weapons you have
+    // If it's scheduled and enabled, scan for mobs.  Either run or fight as set in the options.
     IF((%#t_mobscan% >= %#mobscan_interval%) && (%scan_for_mobs%))
         #t_mobscan = 0
+
+        // Save our yaw and pitch before we dealt with the mob
         #yaw_before = %CARDINALYAW%
         #pitch_before = %PITCH%
+
         $$<CML_scanForMobs.txt>
         IF(%yes%)
             &name = %TRACENAME%
@@ -117,6 +138,8 @@ DO
 
                 $$<CML_fightMobs.txt>
 
+                LOOK(%#yaw_before%,%#pitch_before%)
+
                 IF(%&warn%)
                     // We're losing this battle, run!!!
                     LOG("&a[dig]&7 Losing the battle against %&name%, and am running away")
@@ -124,15 +147,13 @@ DO
                     // Run away for for some time before stopping
                     #time = %#mob_run_time%
                     $$<CML_retreat.txt>
-
-                    LOOK(%#yaw_before%,%#pitch_before%)
                     STOP
                 ELSE
                     LOG("&a[dig]&7 I won the fight against %&name%, will continue")
                 ENDIF
             ELSE
-                LOG("&a[dig]&7 Fleeing due to encountering %&name% at %#trace_x% %#trace_y% %#trace_y%")
-                // Run away for 20 seconds before stopping
+                LOG("&a[dig]&7 Retreating due to %&name% at %#trace_x% %#trace_y% %#trace_y%")
+                // Run away for some amount of seconds before stopping
                 #time = %#mob_run_time%
                 $$<CML_retreat.txt>
                 STOP
@@ -140,32 +161,34 @@ DO
         ENDIF
     ENDIF
 
-    // If any block or its neighbor on is an avoid block, run backwards 3 seconds and stop
-    FOR(#i,0,%#neighbor_end%)
-        GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+    // If any block or its neighbor on is an avoid block, run backwards 3 seconds and stop.  Check every X ticks
+    IF(%#t_blocks% >= %#block_inspection_frequency%)
+        FOR(#i,0,%#neighbor_end%)
+            GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
 
-        is_avoid_block = false
-        FOREACH(&avoid_blocks,&block)
-            IF(%&id% == %&block%)
-                is_avoid_block = true
-                BREAK
+            is_avoid_block = false
+            FOREACH(&avoid_blocks,&block)
+                IF(%&id% == %&block%)
+                    is_avoid_block = true
+                    BREAK
+                ENDIF
+            NEXT
+
+            IF(%is_avoid_block%)
+                KEYUP(forward)
+                LOG("&a[dig]&7 Stopping due to encountered %&id% at %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]%")
+
+                #time = 15
+                $$<CML_retreat.txt>
+
+                WAIT(1t)
+                STOP
             ENDIF
         NEXT
+    ENDIF
 
-        IF(%is_avoid_block%)
-            KEYUP(forward)
-            LOG("&a[dig]&7 Stopping due to encountered %&id% at %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]%")
-
-            #time = 15
-            $$<CML_retreat.txt>
-
-            WAIT(1t)
-            STOP
-        ENDIF
-    NEXT
-
-    // Look at the first non-ignored block in the set
-    IF(%#t_blocks% >= %#block_inspection_frequency%)
+    // If our position or hit position changes, search for new blocks to mine
+    IF(%position_changed% || %hit_changed%)
         SET(done)
         FOR(#i,0,%#block_end%)
             GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
@@ -200,13 +223,13 @@ DO
 
     // If we are just beginning a break-round, save our yaw for when we finish this layer
     IF(prev_done && done)
-        #saved_yaw = %YAW% + 180
+        #saved_yaw = %CARDINALYAW%
     ENDIF
 
     // If we're done with this layer, walk forward until a new layer is encountered
     IF(done)
 
-        // If the block in front of us is air, attempt to make a block in front of us (bridge)
+        // If the block in front of us is air, attempt to make a bridge block
         IF(%DIRECTION% = "N")
             #bridge_x = (%XPOS% + 0)
             #bridge_y = (%YPOS% - 1)
@@ -245,7 +268,7 @@ DO
             // Check if we have any of the bridge building material
             IF(%ITEM% != %&build_bridge_block%)
                 KEYUP(forward)
-                LOG("&a[dig]&7 Stopping due to running out of %&build_bridge_block% for bridge")
+                LOG("&a[dig]&7 Stopping due to ran out of %&build_bridge_block% for bridge")
                 STOP
             ENDIF
 
@@ -279,6 +302,9 @@ DO
     prev_done = done
     INC(#t_mobscan)
     INC(#t_blocks)
+
+    #pos_x = %XPOS%
+    #pos_z = %ZPOS%
 
     $$<CML_eatFood.txt>
 

@@ -1,4 +1,4 @@
-// Book-keeping script, writes materials to a file
+// Book-keeping script for Rhodesia, writes materials to a file
 
 #correct_xpos = -9399
 #correct_zpos = 8600

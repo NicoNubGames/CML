@@ -3,34 +3,23 @@
 
 // Customize "blockPositions" with coordinate parser utility to change the default chest locations
 
-#correct_xpos = 934
-#correct_zpos = -1952
-
+UNSAFE(0)
 $$<itemLogger_blockPositions.txt>
 
-IF((%XPOS% != %#correct_xpos%) || (%ZPOS% != %#correct_zpos%))
-	LOG("&a[item]&7 Not in correct spot")
-	STOP
-ENDIF
-
-#saved_yaw = %YAW% + 180
+#saved_yaw = %CARDINALYAW%
 #saved_pitch = %PITCH%
+
+$$<CML_snapYaw.txt>
 
 LOGTO(mats.txt,[item] %DATETIME%)
 
-UNSAFE(0)
-ARRAYSIZE(#block_x,#num_blocks)
-DEC(#num_blocks)
-FOR(#i,0,%#num_blocks%)
+FOR(#i,0,%#block_end%)
     LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
-    WAIT(1t)
-    DO(20)
-    	KEY(use)
-    	WAIT(1t)
-    UNTIL(%GUI% == "GUICHEST")
-    IF(%GUI% != "GUICHEST")
-    	LOG("&a[item]&7 Chest did not open")
-    	STOP
+
+    // Open chest
+    $$<CML_open.txt>
+    IF(%&warn%)
+        LOG("&a[item]&7 %&warn%")
     ENDIF
 
     // Initialize array for mats and amounts for current chest
@@ -41,9 +30,9 @@ FOR(#i,0,%#num_blocks%)
 
     // Loop through chest and add to mats array as needed
     FOR(#j,0,53)
-    	GETSLOTITEM(%#j%,&item,#size)
+        GETSLOTITEM(%#j%,&item,#size)
 
-    	IF(%&item% != "air")
+        IF(%&item% != "air")
             // Find index of this material for this chest, if it exists.
             // If it doesn't exist, add it to the array
             UNSET(found)
@@ -61,7 +50,7 @@ FOR(#i,0,%#num_blocks%)
             ENDIF
 
             #mat_counts[%#k%] = %#mat_counts[%#k%]% + %#size%
-    	ENDIF
+        ENDIF
     NEXT
 
     // Log all of found items in this chest to mats.txt
@@ -74,28 +63,12 @@ FOR(#i,0,%#num_blocks%)
         ENDIF
     NEXT
 
-    DO(20)
-    	GUI
-    	WAIT(1t)
-    UNTIL(%GUI% = "NONE")
-
-    IF(%GUI% != "NONE")
-    	LOG("&a[item]&7 Chest did not close")
-    	STOP
+    // Close chest
+    $$<CML_close.txt>
+    IF(%&warn%)
+        LOG("&a[item]&7 %&warn%")
     ENDIF
-
-    WAIT(3t)
 NEXT
-
-DO(20)
-	GUI
-	WAIT(1t)
-UNTIL(%GUI% = "NONE")
-
-IF(%GUI% != "NONE")
-	LOG("&a[item]&7 Last chest did not close")
-	STOP
-ENDIF
 
 LOOK(%#saved_yaw%,%#saved_pitch%)
 ENDUNSAFE
