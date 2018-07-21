@@ -1,6 +1,6 @@
-# CML: Common Macro Library
+**Note:** See the [CML Wiki](https://github.com/poteat/CML/wiki) for a set of tutorials and more information.
 
-**Note:** See the [Wiki] for a set of tutorial and more information.
+# CML: Common Macro Library
 
 ### CML is:
 
