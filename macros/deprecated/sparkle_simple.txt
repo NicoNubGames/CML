@@ -1,0 +1,22 @@
+UNSAFE(0)
+DO
+	IF(%GUI% == "GUICRAFTING")
+		FOR(#i,1,3)
+			GETSLOTITEM(%#i%,&item)
+			IF(%&item% == "air")
+				FOR(#j,10,45)
+					GETSLOTITEM(%#j%,&item,#size)
+					IF((%&item% == "wheat") && (%#size% == 64))
+						SLOTCLICK(%#j%)
+						WAIT(1t)
+						SLOTCLICK(%#i%)
+						WAIT(1t)
+					ENDIF
+				NEXT
+			ENDIF
+		NEXT
+	ENDIF
+
+	WAIT(1t)
+LOOP
+ENDUNSAFE

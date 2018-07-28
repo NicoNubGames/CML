@@ -1,0 +1,411 @@
+// State-of-the-art zombie-slaying bot designed to be maximally configurable and performant-measurable.  Specifically,
+// it is built to accomodate Discord / Sheets integration via the "logsend" npm package
+
+// This script will slay zombies with looting swords at a prespecified vector, avoid breaking swords
+// as necessary, occasionally move items from a hopper to a chest, and eat.  As well, we will log out in
+// the following conditions:
+
+// Disconnect on running out of swords
+// Disconnect on position change
+// Disconnect on taking damage
+// Disconnect on nearby snitch events
+// Disconnect if critically hungry
+// Disconnect if chest is full
+// Disconnect if hopper doesn't open
+// Disconnect if chest doesn't open
+// Disconnect if hopper doesn't close
+// Disconnect if chest doesn't close
+
+// On every disconnect, we will also log to a file.  As well, every interval we measure performance data and log
+// that to a file.
+
+// Both files are connected to logsend, which will send any messages to Discord or Sheets respectively.  From
+// there, we can build interactive and dynamic charts that track performance of the bot.  Finally, we write
+// to a ping timeout file frequently, as logsend will restart the client if it sees we suddenly disconnect
+// without sending a message to Discord
+
+UNSAFE(0)
+
+// Interval to transfer items from hopper to chest, (every 120 --> 1 min)
+#iterations_wait_item_transfer = 30
+
+// Time to wait for hopper to open in ticks
+#hopper_wait_time = 200
+
+// Time to wait for hopper to close inventory
+#hopper_close_time = 200
+
+// Time to wait for chest to open in ticks
+#chest_wait_time = 200
+
+// Time to wait for chest to close inventory
+#chest_close_time = 200
+
+// Time to wait between each item movement action
+#item_movement_time = 10
+
+// Health threshold under which we log out.  For some mysterious reason, the bot
+// will take 2 hearts of damage very rarely (once every couple hours).
+#minimum_health_limit = 15
+
+// Minimum durability, below which we will refuse to use the sword
+#minimum_durability = 5
+
+// If a snitch event happens within this distance, disconnect
+@#snitch_alert_radius = 10
+UNSET(@snitch_notify)
+
+// Valuable items
+&valuable_items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
+
+// Useless items
+&useless_items = "chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken"
+
+// Set directional yaw values as constants
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+// Look east (farm is oriented towards east)
+LOOK(%#yaw_east%,0)
+
+WAIT(5t)
+
+// Get block positions
+$$<zombieSlayer_blockPositions.txt>
+#first_chest_index = 0
+#last_chest_index = 8
+#hopper_index = 9
+#iron_gold_index = 10
+#fuel_index = 11
+#repair_index = 12
+#good_swords_index = 13
+#bad_swords_index = 14
+#despawn_index = 15
+#big_zombie_index = 16
+#small_zombie_index = 17
+
+// Save initial position, which should never change
+#x = %XPOS%
+#y = %YPOS%
+#z = %ZPOS%
+
+// If health isn't within limit, stop and warn the user
+IF(%HEALTH% < %#minimum_health_limit%)
+	LOG("&a[zomb]&7 %HEALTH% less than %#minimum_health_limit%, heal and start again")
+	STOP
+ENDIF
+
+#t = 0
+#t2 = 0
+#current_chest_index = %#first_chest_index%
+
+// If "automatic" flag is set (because we detected that this is an automated execution), log to discord
+IF(%@automatic%)
+	LOG("&a[zomb]&7 %DATETIME% Script started successfully on server rejoin")
+	LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Script started successfully on server rejoin")
+ENDIF
+
+UNSET(@automatic)
+
+// Perform initial sword-durability and organization checks.  First, move all the broken
+// swords to the broken swords chest.
+$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
+	// POSSIBLE EXCEPTIONS:
+	// Broken sword chest doesn't open
+	// Broken sword chest is full after we place our items
+	// Broken sword chest doesn't close
+
+// Next, fill hotbar 1-8 with swords if possible.  If less is available, that will do, but if there
+// are no more swords, disconnect
+$$<zombieSlayer_fillHotbarWithSwords.txt>
+	// POSSIBLE EXCEPTIONS:
+	// Clean sword chest doesn't open
+	// We're completely out of clean swords
+	// Clean sword chest doesn't close
+	// OUTPUT:
+	// #clean_chest_swords_durability
+
+DO
+	// If the grave button is pressed, stop the script and prevent timeout by sending an empty
+	// message to logcast
+	IF(%KEY_GRAVE%)
+		LOG("&a[zomb]&7 Manually stopping due to grave key press")
+		LOGTO(zombieSlayer_eventlog.txt,)
+		STOP
+	ENDIF
+
+	// Check for y-level change disconnect condition
+	IF((%XPOS% != %#x%) || (%YPOS% != %#y%) || (%ZPOS% != %#z%))
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to position change")
+		LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to position change")
+		DISCONNECT
+	ENDIF
+
+	// Check if we're starving, and disconnect if so
+	IF(%HUNGER% <= 1)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to reaching critical hunger level")
+		LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to reaching critical hunger level")
+		DISCONNECT
+	ENDIF
+
+	// Check for health disconnect condition
+	IF(%HEALTH% < %#minimum_health_limit%)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to taking damage!!!")
+		LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to taking damage!!! (%HEALTH%)")
+		DISCONNECT
+	ENDIF
+
+	// If a snitch event happens too close to us, disconnect
+	IF(%@snitch_notify%)
+		LOG("&a[zomb]&7 %DATETIME% Disconnected due to snitch event too close")
+		LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to the following snitch event: %@&snitch_message%")
+		DISCONNECT
+	ENDIF
+
+	// Loop through hotbar and find sword with max durability
+	#max_slot = 0
+	#max_dura = 0
+	#sum_durability = 0
+	FOR(#i,1,9)
+		SLOT(%#i%)
+		IF(%ITEM% == "diamond_sword")
+			IF(%DURABILITY% > %#max_dura%)
+				#max_dura = %DURABILITY%
+				#max_slot = %#i%
+			ENDIF
+
+			#sum_durability = %#sum_durability% + %DURABILITY%
+		ENDIF
+	NEXT
+
+	// As well, add calculations from clean swords chest to sum_durability for tracking purposes
+	#sum_durability = %#sum_durability% + %#clean_chest_swords_durability%
+
+	IF((%#max_dura% < %#minimum_durability%) || (%#max_slot% == 0))
+		$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
+		$$<zombieSlayer_fillHotbarWithSwords.txt>
+	ENDIF
+
+	SLOT(%#max_slot%)
+
+	// Set waiting bar for item-transfer operation
+	@#progress = (%#t% * 100) / %#iterations_wait_item_transfer%
+
+	// Perform a trace in the small zombie spot.  If there's one, look there instead
+	LOOK(%#block_yaw[%#small_zombie_index%]%,%#block_pitch[%#small_zombie_index%]%)
+	TRACE(3,true)
+
+	IF(%TRACETYPE% != "ENTITY")
+		LOOK(%#block_yaw[%#big_zombie_index%]%,%#block_pitch[%#big_zombie_index%]%)
+	ENDIF
+
+	WAIT(1t)
+
+	// If an item-transfer was scheduled for this time
+	IF(%#t% >= %#iterations_wait_item_transfer%)
+		LOOK(%#block_yaw[%#hopper_index%]%,%#block_pitch[%#hopper_index%]%)
+
+		$$<CML_open.txt>
+
+		// If the opening failed, just skip this step (probably blocked by dying mob)
+		IF(%&warn% == "")
+			// Loop through all hopper items and take them
+			FOR(#i,0,4)
+				GETSLOTITEM(%#i%,&id)
+
+				IF(%&id% != "air")
+					WAIT(1t)
+					SLOTCLICK(%#i%,L,1)
+					WAIT(%#item_movement_time%t)
+				ENDIF
+			NEXT
+		ELSE
+			LOG(%&warn%)
+		ENDIF
+
+		$$<CML_close.txt>
+
+		// Count how much flesh, valuable items, and useless items we have each
+		&items = "rotten_flesh"
+		$$<CML_countInventoryItems.txt>
+		#num_flesh = %#total%
+
+		&items = %&valuable_items%
+		$$<CML_countInventoryItems.txt>
+		#num_valuable = %#total%
+
+		&items = %&useless_items%
+		$$<CML_countInventoryItems.txt>
+		#num_useless = %#total%
+
+		// This line added to cause chest-looping every iteration
+		#current_chest_index = %#first_chest_index%
+
+		// Incrementally place rotten flesh in flesh chests, until all chests are determined to be full,
+		// if we currently have rotten flesh
+		IF(%#num_flesh% > 0)
+			DO
+				// Open current chest
+				LOOK(%#block_yaw[%#current_chest_index%]%,%#block_pitch[%#current_chest_index%]%)
+				$$<CML_open.txt>
+
+				// Loop through inventory and put all rotten flesh, saving how many we store.
+				// We assume the chest is a double chest.
+				#num_flesh = 0
+				FOR(#i,54,89)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						WAIT(1t)
+						SLOTCLICK(%#i%,L,1)
+						WAIT(%#item_movement_time%t)
+
+						#num_flesh = %#num_flesh% + %#size%
+					ENDIF
+				NEXT
+
+				// Loop the inventory are subtract any rotten flesh we find from the previous amount
+				// We do this in case the chest was full
+				UNSET(flesh_remaining)
+				FOR(#i,54,89)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						#num_flesh = %#num_flesh% - %#size%
+						SET(flesh_remaining)
+					ENDIF
+				NEXT
+
+				// Measure how much rotten flesh is stored in total
+				#total_flesh = (%#current_chest_index% - 3) * 54 *64
+				FOR(#i,0,53)
+					GETSLOTITEM(%#i%,&id,#size)
+					IF(%&id% == "rotten_flesh")
+						#total_flesh = %#total_flesh% + %#size%
+					ENDIF
+				NEXT
+
+				// If there is flesh left in inventory, and chest has no air, then the chest is full
+				UNSET(chest_full)
+				IF(%flesh_remaining%)
+					SET(chest_full)
+					FOR(#i,0,53)
+						GETSLOTITEM(%#i%,&id)
+						IF(%&id% == "air")
+							UNSET(chest_full)
+							BREAK
+						ENDIF
+					NEXT
+
+					IF(%chest_full%)
+						IF(%#current_chest_index% < %#last_chest_index%)
+							INC(#current_chest_index)
+						ELSE
+							LOG("&a[zomb]&7 %DATETIME% Disconnected due to all flesh chests full")
+							LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to all flesh chests full")
+							DISCONNECT
+						ENDIF
+					ENDIF
+				ENDIF
+
+				$$<CML_close.txt>
+
+			WHILE(%chest_full%)
+		ENDIF
+
+		IF(%#num_valuable% > 0)
+			// Open iron/gold chest
+			LOOK(%#block_yaw[%#iron_gold_index%]%,%#block_pitch[%#iron_gold_index%]%)
+			$$<CML_open.txt>
+
+			IF(%&warn% != "")
+				LOG(%&warn%)
+			ENDIF
+
+			&items = %&valuable_items%
+			$$<CML_placeItems.txt>
+			#num_valuable = %#count%
+
+			// Count if there are any iron/gold items left
+			&items = %&valuable_items%
+			$$<CML_countInventoryItems.txt>
+			#num_valuable = %&valuable_items% - %#count%
+
+			IF(%#count% > 0)
+				// Count how much air is left in the iron/gold chest
+				&items = "air"
+				$$<CML_countInventoryItems.txt>
+				
+				IF(%#count% > 0)
+					LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest full")
+					LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to iron/gold full")
+					DISCONNECT
+				ENDIF
+			ENDIF
+
+			$$<CML_close.txt>
+		ENDIF
+
+		IF(%#num_useless% > 0)
+			// Choose a slot without sword, so we can avoid messing up swords when running PICK
+			FOR(#i,1,9)
+				SLOT(%#i%)
+				IF(%ITEM% != "diamond_sword")
+					BREAK
+				ENDIF
+			NEXT
+
+			// Look towards useless item throwing area, and throw all items
+			LOOK(%#block_yaw[%#despawn_index%]%,%#block_pitch[%#despawn_index%]%)
+			WAIT(1t)
+
+			&items = %&useless_items%
+            $$<CML_throwItems.txt>
+		ENDIF
+
+		// Write data stream to google sheets file
+		LOGTO(zombieSlayer_datastream.txt,"%DATE% %TIME% %#sum_durability% %#num_flesh% %#num_valuable% %#total_flesh%")
+
+		#t = 0
+	ELSE
+		// Only attack mobs
+		IF(%HIT% == "ENTITY")
+			KEY(attack)
+		ENDIF
+	ENDIF
+
+	// Every so often, write to timeout file that castlog.js uses to detect unscheduled disconnects
+	IF(#t2 >= 8)
+		LOGTO(zombieSlayer_timeout.txt,)
+		#t2 = 0
+	ENDIF
+
+	INC(#t)
+	INC(#t2)
+
+	// Fix GUI if necessary
+	IF(%GUI% != "NONE")
+		PRESS(ESCAPE);
+		WAIT(1t)
+	ENDIF
+
+	// Eat flesh if we're hungry
+	IF(%HUNGER% <= 18)
+		PICK("rotten_flesh")
+
+		IF(%ITEM% == "rotten_flesh")
+			// Look down so we don't accidentally open a chest while intending to eat
+			LOOK(+0,90)
+			WAIT(5t)
+			DO
+				KEY(use)
+				WAIT(1t)
+			UNTIL((%ITEM% != "rotten_flesh") || (%HUNGER% == 20))
+		ENDIF
+	ENDIF
+
+	// If we have normal food, go ahead and eat it if the flesh didn't sate us
+	$$<CML_eatFood.txt>
+	WAIT(10t)
+LOOP
+ENDUNSAFE

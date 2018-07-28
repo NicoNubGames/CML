@@ -19,13 +19,15 @@
 // ALSO TODO: Make CML_retreat not run off of cliffs
 
 // Which block to build the bridge with, if an air gap occurs in floor
-&build_bridge_block = "cobblestone"
+&build_bridge_block = "dirt"
+
+build_bridges = false
 
 // Minimum durability limit, such that we stop if we can't find a tool not below this limit
 #min_durability_limit = 50
 
 // List of blocks to ignore and not break
-&ignore_blocks = "air rail powered_rail redstone_torch lever button fence"
+&ignore_blocks = "air rail powered_rail redstone_torch lever button fence torch"
 
 // List of blocks to super-avoid, and stop when encountered
 &avoid_blocks = "water lava flowing_lava"
@@ -36,8 +38,11 @@
 // How often to inspect blocks for an avoidance condition
 #avoidance_inspection_frequency = 1
 
+// Scan for lava?
+scan_for_lava = false
+
 // Do we want to scan for mobs?  If on a slow computer, you should set this to false
-scan_for_mobs = true
+scan_for_mobs = false
 
 // Will you stand and fight, or run like a coward?
 fight = false
@@ -96,7 +101,7 @@ DO
     // If position changed, update block pattern
     IF(%position_changed%)
         // Change the following line to choose a different block pattern
-        $$<digBot_3x3blockPattern.txt>
+        $$<digBot_stripBlockPattern.txt>
     ENDIF
 
     // If the user presses grave key, stop
@@ -162,33 +167,35 @@ DO
     ENDIF
 
     // If any block or its neighbor on is an avoid block, run backwards 3 seconds and stop.  Check every X ticks
-    IF(%#t_blocks% >= %#block_inspection_frequency%)
-        FOR(#i,0,%#neighbor_end%)
-            GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
+    IF(%scan_for_lava%)
+        IF(%#t_blocks% >= %#block_inspection_frequency%)
+            FOR(#i,0,%#neighbor_end%)
+                GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
 
-            is_avoid_block = false
-            FOREACH(&avoid_blocks,&block)
-                IF(%&id% == %&block%)
-                    is_avoid_block = true
-                    BREAK
+                is_avoid_block = false
+                FOREACH(&avoid_blocks,&block)
+                    IF(%&id% == %&block%)
+                        is_avoid_block = true
+                        BREAK
+                    ENDIF
+                NEXT
+
+                IF(%is_avoid_block%)
+                    KEYUP(forward)
+                    LOG("&a[dig]&7 Stopping due to encountered %&id% at %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]%")
+
+                    #time = 15
+                    $$<CML_retreat.txt>
+
+                    WAIT(1t)
+                    STOP
                 ENDIF
             NEXT
-
-            IF(%is_avoid_block%)
-                KEYUP(forward)
-                LOG("&a[dig]&7 Stopping due to encountered %&id% at %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]%")
-
-                #time = 15
-                $$<CML_retreat.txt>
-
-                WAIT(1t)
-                STOP
-            ENDIF
-        NEXT
+        ENDIF
     ENDIF
 
     // If our position or hit position changes, search for new blocks to mine
-    IF(%position_changed% || %hit_changed%)
+    IF((%position_changed% || %hit_changed%))
         SET(done)
         FOR(#i,0,%#block_end%)
             GETID(%#block_x[%#i%]%,%#block_y[%#i%]%,%#block_z[%#i%]%,&id)
@@ -229,6 +236,8 @@ DO
     // If we're done with this layer, walk forward until a new layer is encountered
     IF(done)
 
+        LOOK(%#saved_yaw%,+0)
+
         // If the block in front of us is air, attempt to make a bridge block
         IF(%DIRECTION% = "N")
             #bridge_x = (%XPOS% + 0)
@@ -259,31 +268,37 @@ DO
         GETID(%#bridge_x%,%#bridge_y%,%#bridge_z%,&id)
 
         IF(%&id% == "air")
-            LOOK(%#saved_yaw%,8)
-            PICK(%&build_bridge_block%)
-            KEYDOWN(sneak)
-            KEYDOWN(forward)
-            WAIT(20t)
+            IF(%build_bridges%)
+                LOOK(%#saved_yaw%,8)
+                PICK(%&build_bridge_block%)
+                KEYDOWN(sneak)
+                KEYDOWN(forward)
+                WAIT(20t)
 
-            // Check if we have any of the bridge building material
-            IF(%ITEM% != %&build_bridge_block%)
+                // Check if we have any of the bridge building material
+                IF(%ITEM% != %&build_bridge_block%)
+                    KEYUP(forward)
+                    LOG("&a[dig]&7 Stopping due to ran out of %&build_bridge_block% for bridge")
+                    STOP
+                ENDIF
+
                 KEYUP(forward)
-                LOG("&a[dig]&7 Stopping due to ran out of %&build_bridge_block% for bridge")
+                KEYDOWN(back)
+                WAIT(2t)
+                KEYUP(back)
+                KEYUP(sneak)
+                WAIT(1t)
+                LOOK(+180,83)
+                WAIT(1t)
+                KEY(use)
+                WAIT(1t)
+                LOOK(%#saved_yaw%,8)
+                WAIT(1t)
+            ELSE
+                KEYUP(forward)
+                LOG("&a[dig]&7 Stopping due to air gap encountered")
                 STOP
             ENDIF
-
-            KEYUP(forward)
-            KEYDOWN(back)
-            WAIT(2t)
-            KEYUP(back)
-            KEYUP(sneak)
-            WAIT(1t)
-            LOOK(+180,83)
-            WAIT(1t)
-            KEY(use)
-            WAIT(1t)
-            LOOK(%#saved_yaw%,8)
-            WAIT(1t)
         ENDIF
 
         // Look in our original direction

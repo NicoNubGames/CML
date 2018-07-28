@@ -1,0 +1,31 @@
+// Given &items and #max_durability, count total durability into #total
+
+// Split given string into array
+&cml_items[] = SPLIT(" ",%&items%)
+
+IF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 63))
+	#chest_begin = 0
+	#chest_end = 26
+	#inv_begin = 27
+	#inv_end = 62
+ELSEIF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 90))
+	#chest_begin = 0
+	#chest_end = 53
+	#inv_begin = 54
+	#inv_end = 89
+ENDIF
+
+// Loop through chest.
+#total = 0
+FOR(#cml_i,%#chest_begin%,%#chest_end%)
+	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size,#cml_dura)
+	#cml_dura = %#max_durability% - %#cml_dura% - 1
+
+	// If id matches with item, add durability to sum
+	FOREACH(&cml_items,&cml_item)
+		IF(%&cml_id% == %&cml_item%)
+			#total = %#total% + %#cml_dura%
+			BREAK
+		ENDIF
+	NEXT
+NEXT

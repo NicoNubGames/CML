@@ -1,0 +1,43 @@
+// Autocrafting script made for Sparkle for some jobs/XP server where you can't shift-click.
+
+#item_movement_speed = 1
+
+UNSAFE(0)
+
+DO
+	// Open chest, deposit all haybales, wheat, and bread
+	// Then take up to 2 stacks haybales and 3 stacks wheat
+	// If there exists no haybales and less than 3 wheat, stop.
+	LOOK(+0,20)
+	$$<CML_open.txt>
+	&items = "hay_block wheat bread"
+	$$<CML_placeItems.txt>
+
+	$$<CML_countChestItems.txt>
+	IF((%#counts[0]% == 0) && (%#counts[1]% < 3))
+		GUI
+		LOG("Out of haybales and wheat")
+		STOP
+	ENDIF
+
+	&amounts = "64 192 0"
+	$$<CML_takeItems.txt>
+
+	$$<CML_close.txt>
+
+	// Craft all haybales into bread
+	LOOK(+0,60)
+	$$<CML_open.txt>
+	&recipe = "0 hay_block N N N N N N N N"
+	$$<sparkle_fastcraft_fork.txt>
+	&recipe = "0 wheat wheat wheat N N N N N N"
+	$$<sparkle_fastcraft_fork.txt>
+	$$<CML_close.txt>
+
+	IF(KEY_GRAVE)
+		LOG("Stopping due to tilde key press")
+		STOP
+	ENDIF
+LOOP
+
+ENDUNSAFE

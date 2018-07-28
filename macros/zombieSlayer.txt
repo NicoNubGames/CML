@@ -1,587 +1,680 @@
-// State-of-the-art zombie-slaying bot designed to be maximally configurable and performant-measurable.  Specifically,
-// it is built to accomodate Discord / Sheets integration via the "logsend" npm package
-
-// This script will slay zombies with looting swords at a prespecified vector, avoid breaking swords
-// as necessary, occasionally move items from a hopper to a chest, and eat.  As well, we will log out in
-// the following conditions:
-
-// Disconnect on running out of swords
-// Disconnect on position change
-// Disconnect on taking damage
-// Disconnect on nearby snitch events
-// Disconnect if critically hungry
-// Disconnect if chest is full
-// Disconnect if hopper doesn't open
-// Disconnect if chest doesn't open
-// Disconnect if hopper doesn't close
-// Disconnect if chest doesn't close
-
-// On every disconnect, we will also log to a file.  As well, every interval we measure performance data and log
-// that to a file.
-
-// Both files are connected to logsend, which will send any messages to Discord or Sheets respectively.  From
-// there, we can build interactive and dynamic charts that track performance of the bot.  Finally, we write
-// to a ping timeout file frequently, as logsend will restart the client if it sees we suddenly disconnect
-// without sending a message to Discord
-
-UNSAFE(0)
-
-// Specify hardcoded cam vectors
-#zombie_yaw = 479
-#zombie_pitch = 9
-#small_zombie_yaw = 491
-#small_zombie_pitch = 9
-#hopper_yaw = 508
-#hopper_pitch = 32
-#chest_yaw = 533
-#chest_pitch = 6
-
-// Interval to transfer items from hopper to chest, (every 120 --> 1)
-#iterations_wait_item_transfer = 240
-
-// Time to wait for hopper to open in ticks
-#hopper_wait_time = 200
-
-// Time to wait for hopper to close inventory
-#hopper_close_time = 200
-
-// Time to wait for chest to open in ticks
-#chest_wait_time = 200
-
-// Time to wait for chest to close inventory
-#chest_close_time = 200
-
-// Time to wait between each item movement action
-#item_movement_time = 10
-
-// Health threshold under which we log out.  For some mysterious reason, the bot
-// will take 2 hearts of damage very rarely (once every couple hours).
-#minimum_health_limit = 15
-
-// Time to wait between throwing items
-#item_throw_wait_time = 5
-
-// Max intervals looking for items to throw
-#item_throw_find_time = 3
-
-// Minimum durability, below which we will refuse to use the sword
-#minimum_durability = 5
-
-// If a snitch event happens within this distance, disconnect
-@#snitch_alert_radius = 10
-UNSET(@snitch_notify)
-
-// Valuable items
-&valuable_items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
-&valuable_items[] = SPLIT(" ",%&valuable_items%)
-
-// Useless items
-&useless_items = "chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken"
-&useless_items[] = SPLIT(" ",%&useless_items%)
-
-// Set directional yaw values as constants
-#yaw_north = 360
-#yaw_east = 450
-#yaw_south = 180
-#yaw_west = 270
-
-// Look east (farm is oriented towards east)
-LOOK(%#yaw_east%,0)
-
-WAIT(5t)
-
-// Get block positions
-$$<zombieSlayer_blockPositions.txt>
-// 0: Zombie Pos 1
-// 1: Zombie Pos 2
-// 2: Hopper
-// 3: Chest 1
-// 4: Chest 2
-// 5: Chest 3
-// 6: Chest 4
-// 7: Chest 5
-// 8: Chest 6
-// 9: Chest 7
-// 10: Chest 8
-// 11: Chest 9
-// 12: Clean Swords Chest
-// 13: Used Swords Chest
-// 14: Iron/Gold Armor Chest
-// 15: Useless Items
-
-// Save position
-#x = %XPOS%
-#y = %YPOS%
-#z = %ZPOS%
-
-// If health isn't within limit, stop and warn the user
-IF(%HEALTH% < %#minimum_health_limit%)
-	LOG("")
-	LOG("")
-	LOG("")
-	LOG("&f        ERROR: HEAL YOURSELF AND TRY AGAIN")
-	LOG("&cHealth is not at maximum, so the bot would disconnect immediately for safety (aren't you glad I noticed?)")
-	LOG("&cHeal yourself and then try running this script again")
-	STOP
-ENDIF
-
-// We will increment slots on durability condition until there is not a diamond sword.
-#initial_chest_slot = 3
-
-#t = 0
-#t2 = 0
-#current_chest_slot = %#initial_chest_slot%
-
-// If "automatic" flag is set (because we detected that this is an automated execution), log to discord
-IF(%@automatic%)
-	LOG("&a[zomb]&7 %DATETIME% Script started successfully on server rejoin")
-	LOGTO(zombie_slayer.txt,"%DATETIME% Script started successfully on server rejoin")
-ENDIF
-
-UNSET(@automatic)
-
-// Perform initial sword-durability and organization checks.  First, move all the broken
-// swords to the broken swords chest.
-$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
-	// POSSIBLE EXCEPTIONS:
-	// Broken sword chest doesn't open
-	// Broken sword chest is full after we place our items
-	// Broken sword chest doesn't close
-
-// Next, fill hotbar 1-8 with swords if possible.  If less is available, that will do, but if there
-// are no more swords, disconnect
-$$<zombieSlayer_fillHotbarWithSwords.txt>
-	// POSSIBLE EXCEPTIONS:
-	// Clean sword chest doesn't open
-	// We're completely out of clean swords
-	// Clean sword chest doesn't close
-	// OUTPUT:
-	// #clean_chest_swords_durability
-
-DO
-	// If the grave button is pressed, stop the script and prevent timeout by sending an empty
-	// message to logcast
-	IF(%KEY_GRAVE%)
-		LOG("&a[zomb]&7 Manually stopping due to grave key press")
-		LOGTO(zombie_slayer.txt,)
-		STOP
-	ENDIF
-
-	// Check for y-level change disconnect condition
-	IF((%XPOS% != %#x%) || (%YPOS% != %#y%) || (%ZPOS% != %#z%))
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to position change")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to position change")
-		DISCONNECT
-	ENDIF
-
-	// Check if we're starving, and disconnect if so
-	IF(%HUNGER% <= 1)
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to reaching critical hunger level")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to reaching critical hunger level")
-		DISCONNECT
-	ENDIF
-
-	// Check for health disconnect condition
-	IF(%HEALTH% < %#minimum_health_limit%)
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to taking damage!!!")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to taking damage!!! (%HEALTH%)")
-		DISCONNECT
-	ENDIF
-
-	// If a snitch event happens too close to us, disconnect
-	IF(%@snitch_notify%)
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to snitch event too close")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to the following snitch event: %@&snitch_message%")
-		DISCONNECT
-	ENDIF
-
-	// Loop through hotbar and find sword with max durability
-	#max_slot = 0
-	#max_dura = 0
-	#sum_durability = 0
-	FOR(#i,1,9)
-		SLOT(%#i%)
-		IF(%ITEM% == "diamond_sword")
-			IF(%DURABILITY% > %#max_dura%)
-				#max_dura = %DURABILITY%
-				#max_slot = %#i%
-			ENDIF
-
-			#sum_durability = %#sum_durability% + %DURABILITY%
-		ENDIF
-	NEXT
-
-	// As well, add calculations from clean swords chest to sum_durability for tracking purposes
-	#sum_durability = %#sum_durability% + %#clean_chest_swords_durability%
-
-	IF((%#max_dura% < %#minimum_durability%) || (%#max_slot% == 0))
-		$$<zombieSlayer_moveAllBrokenSwordsToChest.txt>
-		$$<zombieSlayer_fillHotbarWithSwords.txt>
-	ENDIF
-
-	SLOT(%#max_slot%)
-
-	// Set waiting bar for item-transfer operation
-	@#progress = (%#t% * 100) / %#iterations_wait_item_transfer%
-
-	// Perform a trace in the small zombie spot.  If there's one, look there instead
-	LOOK(%#block_yaw[1]%,%#block_pitch[1]%)
-	TRACE(3,true)
-
-	IF(%TRACETYPE% != "ENTITY")
-		LOOK(%#block_yaw[0]%,%#block_pitch[0]%)
-	ENDIF
-
-	WAIT(1t)
-
-	IF(%#t% >= %#iterations_wait_item_transfer%)
-		LOOK(%#block_yaw[2]%,%#block_pitch[2]%)
-		WAIT(1t)
-
-		KEY(use)
-
-		DO(%#hopper_wait_time%)
-			KEY(use)
-			WAIT(1t)
-		UNTIL(%GUI% == "GUIHOPPER")
-
-		IF(%GUI% != "GUIHOPPER")
-			LOG("&a[zomb]&7 %DATETIME% Disconnected due to hopper not opening")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not opening")
-			DISCONNECT
-		ENDIF
-
-		// Loop through all hopper items and take them
-		FOR(#i,0,4)
-			GETSLOTITEM(%#i%,&id)
-
-			IF(%&id% != "air")
-				WAIT(1t)
-				SLOTCLICK(%#i%,L,1)
-				WAIT(%#item_movement_time%t)
-			ENDIF
-		NEXT
-
-		// Loop through and count how many zombies, useless items, and gold/iron items we have
-		#num_flesh = 0
-		#num_valuable = 0
-		#num_useless = 0
-		FOR(#i,5,40)
-			GETSLOTITEM(%#i%,&id,#size)
-
-			IF(%&id% == "rotten_flesh")
-				#num_flesh = %#num_flesh% + %#size%
-			ENDIF
-
-		    FOREACH(&valuable_items,&valuable_item)
-		        IF(%&id% == %&valuable_item%)
-		            #num_valuable = %#num_valuable% + %#size%
-		            BREAK
-		        ENDIF
-		    NEXT
-
-		    FOREACH(&useless_items,&useless_item)
-		        IF(%&id% == %&useless_item%)
-		            #num_useless = %#num_useless% + %#size%
-		            BREAK
-		        ENDIF
-		    NEXT
-		NEXT
-
-		// Attempt to close hopper storage
-		DO(%#hopper_close_time%)
-			GUI
-			WAIT(1t)
-		UNTIL(%GUI% = "NONE")
-
-		IF(%GUI% != "NONE")
-			LOG("&a[zomb]&7 %DATETIME% Disconnected due to hopper not closing")
-			LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to hopper not closing")
-			DISCONNECT
-		ENDIF
-
-		// This line added to cause chest-looping every iteration
-		#current_chest_slot = %#initial_chest_slot%
-
-		// Incrementally place rotten flesh in flesh chests, until all chests are determined to be full,
-		// if we currently have rotten flesh
-		IF(%#num_flesh% > 0)
-			DO
-				// Open current chest
-				LOOK(%#block_yaw[%#current_chest_slot%]%,%#block_pitch[%#current_chest_slot%]%)
-				WAIT(1t)
-
-				KEY(use)
-
-				DO(%#chest_wait_time%)
-					KEY(use)
-					WAIT(1t)
-				UNTIL(%GUI% == "GUICHEST")
-
-				IF(%GUI% != "GUICHEST")
-					LOG("&a[zomb]&7 %DATETIME% Disconnected due to chest not opening")
-					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not opening")
-					DISCONNECT
-				ENDIF
-
-				// Loop through inventory and put all rotten flesh, saving how many we store.
-				// We assume the chest is a double chest.
-				#num_flesh = 0
-				FOR(#i,54,89)
-					GETSLOTITEM(%#i%,&id,#size)
-					IF(%&id% == "rotten_flesh")
-						WAIT(1t)
-						SLOTCLICK(%#i%,L,1)
-						WAIT(%#item_movement_time%t)
-
-						#num_flesh = %#num_flesh% + %#size%
-					ENDIF
-				NEXT
-
-				// Loop the inventory are subtract any rotten flesh we find from the previous amount
-				// We do this in case the chest was full
-				UNSET(flesh_remaining)
-				FOR(#i,54,89)
-					GETSLOTITEM(%#i%,&id,#size)
-					IF(%&id% == "rotten_flesh")
-						#num_flesh = %#num_flesh% - %#size%
-						SET(flesh_remaining)
-					ENDIF
-				NEXT
-
-				// Measure how much rotten flesh is stored in total
-				#total_flesh = (%#current_chest_slot% - 3) * 54 *64
-				FOR(#i,0,53)
-					GETSLOTITEM(%#i%,&id,#size)
-					IF(%&id% == "rotten_flesh")
-						#total_flesh = %#total_flesh% + %#size%
-					ENDIF
-				NEXT
-
-				// If there is flesh left in inventory, and chest has no air, then the chest is full
-				UNSET(chest_full)
-				IF(%flesh_remaining%)
-					SET(chest_full)
-					FOR(#i,0,53)
-						GETSLOTITEM(%#i%,&id)
-						IF(%&id% == "air")
-							UNSET(chest_full)
-							BREAK
-						ENDIF
-					NEXT
-
-					IF(%chest_full%)
-						IF(%#current_chest_slot% < 11)
-							INC(#current_chest_slot)
-						ELSE
-							LOG("&a[zomb]&7 %DATETIME% Disconnected due to all flesh chests full")
-							LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to all flesh chests full")
-							DISCONNECT
-						ENDIF
-					ENDIF
-				ENDIF
-
-				// Attempt to close chest
-				DO(%#chest_close_time%)
-					GUI
-					WAIT(1t)
-				UNTIL(%GUI% = "NONE")
-
-				IF(%GUI% != "NONE")
-					LOG("&a[zomb]&7 %DATETIME% Disconnected due to chest not closing")
-					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to chest not closing")
-					DISCONNECT
-				ENDIF
-			WHILE(%chest_full%)
-		ENDIF
-
-		IF(%#num_valuable% > 0)
-			// Open iron/gold chest
-			LOOK(%#block_yaw[14]%,%#block_pitch[14]%)
-			WAIT(1t)
-
-			KEY(use)
-
-			DO(%#chest_wait_time%)
-				KEY(use)
-				WAIT(1t)
-			UNTIL(%GUI% == "GUICHEST")
-
-			IF(%GUI% != "GUICHEST")
-				LOG("[zomb] %DATETIME% Disconnected due to iron/gold chest not opening")
-				LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold chest not opening")
-				DISCONNECT
-			ENDIF
-
-			// Loop through inventory and put all rotten flesh, saving how many we store.
-			// We assume the chest is a double chest.
-			#num_valuable = 0
-			FOR(#i,54,89)
-				GETSLOTITEM(%#i%,&id,#size)
-
-				UNSET(is_valuable)
-			    FOREACH(&valuable_items,&valuable_item)
-			        IF(%&id% == %&valuable_item%)
-			            SET(is_valuable)
-			            BREAK
-			        ENDIF
-			    NEXT
-
-				IF(%is_valuable%)
-					WAIT(1t)
-					SLOTCLICK(%#i%,L,1)
-					WAIT(%#item_movement_time%t)
-
-					#num_valuable = %#num_valuable% + %#size%
-				ENDIF
-			NEXT
-
-			// Loop the inventory are subtract any rotten flesh we find from the previous amount
-			// We do this in case the chest was full
-			UNSET(items_remaining)
-			FOR(#i,54,89)
-				GETSLOTITEM(%#i%,&id,#size)
-
-				UNSET(is_valuable)
-			    FOREACH(&valuable_items,&valuable_item)
-			        IF(%&id% == %&valuable_item%)
-			            SET(is_valuable)
-			            BREAK
-			        ENDIF
-			    NEXT
-
-				IF(%is_valuable%)
-					#num_valuable = %#num_valuable% - %#size%
-					SET(items_remaining)
-				ENDIF
-			NEXT
-
-			// If there is flesh left in inventory, and chest has no air, then the chest is full
-			UNSET(chest_full)
-			IF(%items_remaining%)
-				SET(chest_full)
-				FOR(#i,0,53)
-					GETSLOTITEM(%#i%,&id)
-					IF(%&id% == "air")
-						UNSET(chest_full)
-						BREAK
-					ENDIF
-				NEXT
-
-				IF(%chest_full%)
-					LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest full")
-					LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold full")
-					DISCONNECT
-				ENDIF
-			ENDIF
-
-			// Attempt to close chest
-			DO(%#chest_close_time%)
-				GUI
-				WAIT(1t)
-			UNTIL(%GUI% = "NONE")
-
-			IF(%GUI% != "NONE")
-				LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest not closing")
-				LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to iron/gold chest not closing")
-				DISCONNECT
-			ENDIF
-		ENDIF
-
-		IF(%#num_useless% > 0)
-			// Choose a slot without sword, so we can avoid messing up swords when running PICK
-			FOR(#i,1,9)
-				SLOT(%#i%)
-				IF(%ITEM% != "diamond_sword")
-					BREAK
-				ENDIF
-			NEXT
-
-			// Look towards useless item throwing area, and throw all items
-			LOOK(%#block_yaw[15]%,%#block_pitch[15]%)
-			WAIT(1t)
-
-            // Throw all unwanted items
-            // If we can't find a melon block in 1 second, assume our inventory is now empty
-            #find_timer = 0
-            DO
-                PICK("chainmail_helmet")
-                PICK("chainmail_chestplate")
-                PICK("chainmail_leggings")
-                PICK("chainmail_boots")
-                PICK("leather_helmet")
-                PICK("leather_chestplate")
-                PICK("leather_leggings")
-                PICK("leather_boots")
-                PICK("potato")
-                PICK("feather")
-                PICK("carrot")
-                PICK("chicken")
-                WAIT(%#item_throw_wait_time%t)
-
-			    UNSET(is_useless)
-			    FOREACH(&useless_items,&useless_item)
-			        IF(%ITEM% == %&useless_item%)
-			            SET(is_useless)
-			            BREAK
-			        ENDIF
-			    NEXT
-
-                IF(%is_useless%)
-                    #find_timer = 0
-                    KEY(drop)
-                    WAIT(1t)
-                ELSE
-                    INC(#find_timer)
-                ENDIF
-
-                $$<CML_snapYaw.txt>
-            UNTIL(%#find_timer% >= %#item_throw_find_time%)
-		ENDIF
-
-		// Write data stream to google sheets file
-		LOGTO(zombie_slayer_datastream.txt,"%DATE% %TIME% %#sum_durability% %#num_flesh% %#num_valuable% %#total_flesh%")
-
-		#t = 0
-	ELSE
-		// Only attack mobs
-		IF(%HIT% == "ENTITY")
-			KEY(attack)
-		ENDIF
-	ENDIF
-
-	// Every so often, write to timeout file that castlog.js uses to detect unscheduled disconnects
-	IF(#t2 >= 8)
-		LOGTO(zombie_slayer_timeout.txt,)
-		#t2 = 0
-	ENDIF
-
-	INC(#t)
-	INC(#t2)
-
-	// Fix GUI if necessary
-	IF(%GUI% != "NONE")
-		PRESS(ESCAPE);
-		WAIT(1t)
-	ENDIF
-
-	// Eat flesh if we're hungry (yuck, but it's self-sufficient)
-	IF(%HUNGER% <= 18)
-		PICK("rotten_flesh")
-
-		IF(%ITEM% == "rotten_flesh")
-			// Look down so we don't accidentally open a chest while intending to eat
-			LOOK(+0,90)
-			WAIT(5t)
-			DO
-				KEY(use)
-				WAIT(1t)
-			UNTIL((%ITEM% != "rotten_flesh") || (%HUNGER% == 20))
-		ENDIF
-	ENDIF
-
-	// If we have normal food, go ahead and eat it if the flesh didn't sate us
-	$$<CML_eatFood.txt>
-	WAIT(10t)
-LOOP
-ENDUNSAFE
+// Generated by macrocompile.js, the optimizing macro compiler
+// July 26th 2018
+UNSAFE(0);#q1=30;#q2=200;#q3=200;#q4=200;#q5=200;#q6=10;#q7=15;#q8=5;
+@#snitch_alert_radius=10;UNSET(@snitch_notify);
+&q1="iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots";
+&q2="chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken";
+#q9=360;#q10=450;#q11=180;#q12=270;LOOK(%#q10%,0);WAIT(5t);#q13=17;#q14=18;
+#q15=84;IF(%DIRECTION%="N");#q16[0]=(%XPOS%+2);#q17[0]=(%YPOS%+2);
+#q18[0]=(%ZPOS%+0);#q19[0]=445;#q20[0]=339;#q16[1]=(%XPOS%+2);
+#q17[1]=(%YPOS%+1);#q18[1]=(%ZPOS%+0);#q19[1]=444;#q20[1]=6;
+#q16[2]=(%XPOS%+2);#q17[2]=(%YPOS%+0);#q18[2]=(%ZPOS%+0);#q19[2]=444;
+#q20[2]=31;#q16[3]=(%XPOS%+2);#q17[3]=(%YPOS%+2);#q18[3]=(%ZPOS%+1);
+#q19[3]=471;#q20[3]=340;#q16[4]=(%XPOS%+2);#q17[4]=(%YPOS%+1);
+#q18[4]=(%ZPOS%+1);#q19[4]=472;#q20[4]=5;#q16[5]=(%XPOS%+2);
+#q17[5]=(%YPOS%+0);#q18[5]=(%ZPOS%+1);#q19[5]=471;#q20[5]=29;
+#q16[6]=(%XPOS%+2);#q17[6]=(%YPOS%+2);#q18[6]=(%ZPOS%+2);#q19[6]=494;
+#q20[6]=343;#q16[7]=(%XPOS%+2);#q17[7]=(%YPOS%+1);#q18[7]=(%ZPOS%+2);
+#q19[7]=493;#q20[7]=5;#q16[8]=(%XPOS%+2);#q17[8]=(%YPOS%+0);
+#q18[8]=(%ZPOS%+2);#q19[8]=493;#q20[8]=23;#q16[9]=(%XPOS%+1);
+#q17[9]=(%YPOS%+0);#q18[9]=(%ZPOS%-1);#q19[9]=418;#q20[9]=35;
+#q16[10]=(%XPOS%+1);#q17[10]=(%YPOS%-1);#q18[10]=(%ZPOS%+0);#q19[10]=443;
+#q20[10]=54;#q16[11]=(%XPOS%+2);#q17[11]=(%YPOS%-2);#q18[11]=(%ZPOS%+1);
+#q19[11]=470;#q20[11]=50;#q16[12]=(%XPOS%-1);#q17[12]=(%YPOS%+0);
+#q18[12]=(%ZPOS%-1);#q19[12]=311;#q20[12]=32;#q16[13]=(%XPOS%-1);
+#q17[13]=(%YPOS%+0);#q18[13]=(%ZPOS%+0);#q19[13]=281;#q20[13]=48;
+#q16[14]=(%XPOS%-1);#q17[14]=(%YPOS%+1);#q18[14]=(%ZPOS%+1);#q19[14]=238;
+#q20[14]=10;#q16[15]=(%XPOS%-2);#q17[15]=(%YPOS%+3);#q18[15]=(%ZPOS%+0);
+#q19[15]=269;#q20[15]=326;#q16[16]=(%XPOS%-968);#q17[16]=(%YPOS%-18);
+#q18[16]=(%ZPOS%-12580);#q19[16]=392;#q20[16]=10;#q16[17]=(%XPOS%-968);
+#q17[17]=(%YPOS%-18);#q18[17]=(%ZPOS%-12580);#q19[17]=402;#q20[17]=9;
+#q16[18]=(%XPOS%+2);#q17[18]=(%YPOS%+2);#q18[18]=(%ZPOS%-1);#q19[18]=270;
+#q20[18]=0;#q16[19]=(%XPOS%+2);#q17[19]=(%YPOS%+3);#q18[19]=(%ZPOS%+0);
+#q19[19]=270;#q20[19]=0;#q16[20]=(%XPOS%+3);#q17[20]=(%YPOS%+2);
+#q18[20]=(%ZPOS%+0);#q19[20]=270;#q20[20]=0;#q16[21]=(%XPOS%+1);
+#q17[21]=(%YPOS%+2);#q18[21]=(%ZPOS%+0);#q19[21]=270;#q20[21]=0;
+#q16[22]=(%XPOS%+2);#q17[22]=(%YPOS%+1);#q18[22]=(%ZPOS%-1);#q19[22]=270;
+#q20[22]=0;#q16[23]=(%XPOS%+3);#q17[23]=(%YPOS%+1);#q18[23]=(%ZPOS%+0);
+#q19[23]=270;#q20[23]=0;#q16[24]=(%XPOS%+1);#q17[24]=(%YPOS%+1);
+#q18[24]=(%ZPOS%+0);#q19[24]=270;#q20[24]=0;#q16[25]=(%XPOS%+2);
+#q17[25]=(%YPOS%+0);#q18[25]=(%ZPOS%-1);#q19[25]=270;#q20[25]=0;
+#q16[26]=(%XPOS%+2);#q17[26]=(%YPOS%-1);#q18[26]=(%ZPOS%+0);#q19[26]=270;
+#q20[26]=0;#q16[27]=(%XPOS%+3);#q17[27]=(%YPOS%+0);#q18[27]=(%ZPOS%+0);
+#q19[27]=270;#q20[27]=0;#q16[28]=(%XPOS%+1);#q17[28]=(%YPOS%+0);
+#q18[28]=(%ZPOS%+0);#q19[28]=270;#q20[28]=0;#q16[29]=(%XPOS%+2);
+#q17[29]=(%YPOS%+3);#q18[29]=(%ZPOS%+1);#q19[29]=270;#q20[29]=0;
+#q16[30]=(%XPOS%+3);#q17[30]=(%YPOS%+2);#q18[30]=(%ZPOS%+1);#q19[30]=270;
+#q20[30]=0;#q16[31]=(%XPOS%+1);#q17[31]=(%YPOS%+2);#q18[31]=(%ZPOS%+1);
+#q19[31]=270;#q20[31]=0;#q16[32]=(%XPOS%+3);#q17[32]=(%YPOS%+1);
+#q18[32]=(%ZPOS%+1);#q19[32]=270;#q20[32]=0;#q16[33]=(%XPOS%+1);
+#q17[33]=(%YPOS%+1);#q18[33]=(%ZPOS%+1);#q19[33]=270;#q20[33]=0;
+#q16[34]=(%XPOS%+2);#q17[34]=(%YPOS%-1);#q18[34]=(%ZPOS%+1);#q19[34]=270;
+#q20[34]=0;#q16[35]=(%XPOS%+3);#q17[35]=(%YPOS%+0);#q18[35]=(%ZPOS%+1);
+#q19[35]=270;#q20[35]=0;#q16[36]=(%XPOS%+1);#q17[36]=(%YPOS%+0);
+#q18[36]=(%ZPOS%+1);#q19[36]=270;#q20[36]=0;#q16[37]=(%XPOS%+2);
+#q17[37]=(%YPOS%+2);#q18[37]=(%ZPOS%+3);#q19[37]=270;#q20[37]=0;
+#q16[38]=(%XPOS%+2);#q17[38]=(%YPOS%+3);#q18[38]=(%ZPOS%+2);#q19[38]=270;
+#q20[38]=0;#q16[39]=(%XPOS%+3);#q17[39]=(%YPOS%+2);#q18[39]=(%ZPOS%+2);
+#q19[39]=270;#q20[39]=0;#q16[40]=(%XPOS%+1);#q17[40]=(%YPOS%+2);
+#q18[40]=(%ZPOS%+2);#q19[40]=270;#q20[40]=0;#q16[41]=(%XPOS%+2);
+#q17[41]=(%YPOS%+1);#q18[41]=(%ZPOS%+3);#q19[41]=270;#q20[41]=0;
+#q16[42]=(%XPOS%+3);#q17[42]=(%YPOS%+1);#q18[42]=(%ZPOS%+2);#q19[42]=270;
+#q20[42]=0;#q16[43]=(%XPOS%+1);#q17[43]=(%YPOS%+1);#q18[43]=(%ZPOS%+2);
+#q19[43]=270;#q20[43]=0;#q16[44]=(%XPOS%+2);#q17[44]=(%YPOS%+0);
+#q18[44]=(%ZPOS%+3);#q19[44]=270;#q20[44]=0;#q16[45]=(%XPOS%+2);
+#q17[45]=(%YPOS%-1);#q18[45]=(%ZPOS%+2);#q19[45]=270;#q20[45]=0;
+#q16[46]=(%XPOS%+3);#q17[46]=(%YPOS%+0);#q18[46]=(%ZPOS%+2);#q19[46]=270;
+#q20[46]=0;#q16[47]=(%XPOS%+1);#q17[47]=(%YPOS%+0);#q18[47]=(%ZPOS%+2);
+#q19[47]=270;#q20[47]=0;#q16[48]=(%XPOS%+1);#q17[48]=(%YPOS%+0);
+#q18[48]=(%ZPOS%-2);#q19[48]=270;#q20[48]=0;#q16[49]=(%XPOS%+1);
+#q17[49]=(%YPOS%+1);#q18[49]=(%ZPOS%-1);#q19[49]=270;#q20[49]=0;
+#q16[50]=(%XPOS%+1);#q17[50]=(%YPOS%-1);#q18[50]=(%ZPOS%-1);#q19[50]=270;
+#q20[50]=0;#q16[51]=(%XPOS%+0);#q17[51]=(%YPOS%+0);#q18[51]=(%ZPOS%-1);
+#q19[51]=270;#q20[51]=0;#q16[52]=(%XPOS%+1);#q17[52]=(%YPOS%-1);
+#q18[52]=(%ZPOS%+1);#q19[52]=270;#q20[52]=0;#q16[53]=(%XPOS%+1);
+#q17[53]=(%YPOS%-2);#q18[53]=(%ZPOS%+0);#q19[53]=270;#q20[53]=0;
+#q16[54]=(%XPOS%+0);#q17[54]=(%YPOS%-1);#q18[54]=(%ZPOS%+0);#q19[54]=270;
+#q20[54]=0;#q16[55]=(%XPOS%+2);#q17[55]=(%YPOS%-2);#q18[55]=(%ZPOS%+0);
+#q19[55]=270;#q20[55]=0;#q16[56]=(%XPOS%+2);#q17[56]=(%YPOS%-2);
+#q18[56]=(%ZPOS%+2);#q19[56]=270;#q20[56]=0;#q16[57]=(%XPOS%+2);
+#q17[57]=(%YPOS%-3);#q18[57]=(%ZPOS%+1);#q19[57]=270;#q20[57]=0;
+#q16[58]=(%XPOS%+3);#q17[58]=(%YPOS%-2);#q18[58]=(%ZPOS%+1);#q19[58]=270;
+#q20[58]=0;#q16[59]=(%XPOS%+1);#q17[59]=(%YPOS%-2);#q18[59]=(%ZPOS%+1);
+#q19[59]=270;#q20[59]=0;#q16[60]=(%XPOS%-1);#q17[60]=(%YPOS%+0);
+#q18[60]=(%ZPOS%-2);#q19[60]=270;#q20[60]=0;#q16[61]=(%XPOS%-1);
+#q17[61]=(%YPOS%+1);#q18[61]=(%ZPOS%-1);#q19[61]=270;#q20[61]=0;
+#q16[62]=(%XPOS%-1);#q17[62]=(%YPOS%-1);#q18[62]=(%ZPOS%-1);#q19[62]=270;
+#q20[62]=0;#q16[63]=(%XPOS%-2);#q17[63]=(%YPOS%+0);#q18[63]=(%ZPOS%-1);
+#q19[63]=270;#q20[63]=0;#q16[64]=(%XPOS%-1);#q17[64]=(%YPOS%+0);
+#q18[64]=(%ZPOS%+1);#q19[64]=270;#q20[64]=0;#q16[65]=(%XPOS%-1);
+#q17[65]=(%YPOS%+1);#q18[65]=(%ZPOS%+0);#q19[65]=270;#q20[65]=0;
+#q16[66]=(%XPOS%-1);#q17[66]=(%YPOS%-1);#q18[66]=(%ZPOS%+0);#q19[66]=270;
+#q20[66]=0;#q16[67]=(%XPOS%+0);#q17[67]=(%YPOS%+0);#q18[67]=(%ZPOS%+0);
+#q19[67]=270;#q20[67]=0;#q16[68]=(%XPOS%-2);#q17[68]=(%YPOS%+0);
+#q18[68]=(%ZPOS%+0);#q19[68]=270;#q20[68]=0;#q16[69]=(%XPOS%-1);
+#q17[69]=(%YPOS%+1);#q18[69]=(%ZPOS%+2);#q19[69]=270;#q20[69]=0;
+#q16[70]=(%XPOS%-1);#q17[70]=(%YPOS%+2);#q18[70]=(%ZPOS%+1);#q19[70]=270;
+#q20[70]=0;#q16[71]=(%XPOS%+0);#q17[71]=(%YPOS%+1);#q18[71]=(%ZPOS%+1);
+#q19[71]=270;#q20[71]=0;#q16[72]=(%XPOS%-2);#q17[72]=(%YPOS%+1);
+#q18[72]=(%ZPOS%+1);#q19[72]=270;#q20[72]=0;#q16[73]=(%XPOS%-2);
+#q17[73]=(%YPOS%+3);#q18[73]=(%ZPOS%-1);#q19[73]=270;#q20[73]=0;
+#q16[74]=(%XPOS%-2);#q17[74]=(%YPOS%+3);#q18[74]=(%ZPOS%+1);#q19[74]=270;
+#q20[74]=0;#q16[75]=(%XPOS%-2);#q17[75]=(%YPOS%+4);#q18[75]=(%ZPOS%+0);
+#q19[75]=270;#q20[75]=0;#q16[76]=(%XPOS%-2);#q17[76]=(%YPOS%+2);
+#q18[76]=(%ZPOS%+0);#q19[76]=270;#q20[76]=0;#q16[77]=(%XPOS%-1);
+#q17[77]=(%YPOS%+3);#q18[77]=(%ZPOS%+0);#q19[77]=270;#q20[77]=0;
+#q16[78]=(%XPOS%-3);#q17[78]=(%YPOS%+3);#q18[78]=(%ZPOS%+0);#q19[78]=270;
+#q20[78]=0;#q16[79]=(%XPOS%-968);#q17[79]=(%YPOS%-18);
+#q18[79]=(%ZPOS%-12581);#q19[79]=270;#q20[79]=0;#q16[80]=(%XPOS%-968);
+#q17[80]=(%YPOS%-18);#q18[80]=(%ZPOS%-12579);#q19[80]=270;#q20[80]=0;
+#q16[81]=(%XPOS%-968);#q17[81]=(%YPOS%-17);#q18[81]=(%ZPOS%-12580);
+#q19[81]=270;#q20[81]=0;#q16[82]=(%XPOS%-968);#q17[82]=(%YPOS%-19);
+#q18[82]=(%ZPOS%-12580);#q19[82]=270;#q20[82]=0;#q16[83]=(%XPOS%-967);
+#q17[83]=(%YPOS%-18);#q18[83]=(%ZPOS%-12580);#q19[83]=270;#q20[83]=0;
+#q16[84]=(%XPOS%-969);#q17[84]=(%YPOS%-18);#q18[84]=(%ZPOS%-12580);
+#q19[84]=270;#q20[84]=0;ELSEIF(%DIRECTION%="E");#q16[0]=(%XPOS%+0);
+#q17[0]=(%YPOS%+2);#q18[0]=(%ZPOS%+2);#q19[0]=535;#q20[0]=339;
+#q16[1]=(%XPOS%+0);#q17[1]=(%YPOS%+1);#q18[1]=(%ZPOS%+2);#q19[1]=534;
+#q20[1]=6;#q16[2]=(%XPOS%+0);#q17[2]=(%YPOS%+0);#q18[2]=(%ZPOS%+2);
+#q19[2]=534;#q20[2]=31;#q16[3]=(%XPOS%-1);#q17[3]=(%YPOS%+2);
+#q18[3]=(%ZPOS%+2);#q19[3]=201;#q20[3]=340;#q16[4]=(%XPOS%-1);
+#q17[4]=(%YPOS%+1);#q18[4]=(%ZPOS%+2);#q19[4]=202;#q20[4]=5;
+#q16[5]=(%XPOS%-1);#q17[5]=(%YPOS%+0);#q18[5]=(%ZPOS%+2);#q19[5]=201;
+#q20[5]=29;#q16[6]=(%XPOS%-2);#q17[6]=(%YPOS%+2);#q18[6]=(%ZPOS%+2);
+#q19[6]=224;#q20[6]=343;#q16[7]=(%XPOS%-2);#q17[7]=(%YPOS%+1);
+#q18[7]=(%ZPOS%+2);#q19[7]=223;#q20[7]=5;#q16[8]=(%XPOS%-2);
+#q17[8]=(%YPOS%+0);#q18[8]=(%ZPOS%+2);#q19[8]=223;#q20[8]=23;
+#q16[9]=(%XPOS%+1);#q17[9]=(%YPOS%+0);#q18[9]=(%ZPOS%+1);#q19[9]=508;
+#q20[9]=35;#q16[10]=(%XPOS%+0);#q17[10]=(%YPOS%-1);#q18[10]=(%ZPOS%+1);
+#q19[10]=533;#q20[10]=54;#q16[11]=(%XPOS%-1);#q17[11]=(%YPOS%-2);
+#q18[11]=(%ZPOS%+2);#q19[11]=200;#q20[11]=50;#q16[12]=(%XPOS%+1);
+#q17[12]=(%YPOS%+0);#q18[12]=(%ZPOS%-1);#q19[12]=401;#q20[12]=32;
+#q16[13]=(%XPOS%+0);#q17[13]=(%YPOS%+0);#q18[13]=(%ZPOS%-1);#q19[13]=371;
+#q20[13]=48;#q16[14]=(%XPOS%-1);#q17[14]=(%YPOS%+1);#q18[14]=(%ZPOS%-1);
+#q19[14]=328;#q20[14]=10;#q16[15]=(%XPOS%+0);#q17[15]=(%YPOS%+3);
+#q18[15]=(%ZPOS%-2);#q19[15]=359;#q20[15]=326;#q16[16]=(%XPOS%+12580);
+#q17[16]=(%YPOS%-18);#q18[16]=(%ZPOS%-968);#q19[16]=482;#q20[16]=10;
+#q16[17]=(%XPOS%+12580);#q17[17]=(%YPOS%-18);#q18[17]=(%ZPOS%-968);
+#q19[17]=492;#q20[17]=9;#q16[18]=(%XPOS%+1);#q17[18]=(%YPOS%+2);
+#q18[18]=(%ZPOS%+2);#q19[18]=0;#q20[18]=0;#q16[19]=(%XPOS%+0);
+#q17[19]=(%YPOS%+3);#q18[19]=(%ZPOS%+2);#q19[19]=0;#q20[19]=0;
+#q16[20]=(%XPOS%+0);#q17[20]=(%YPOS%+2);#q18[20]=(%ZPOS%+3);#q19[20]=0;
+#q20[20]=0;#q16[21]=(%XPOS%+0);#q17[21]=(%YPOS%+2);#q18[21]=(%ZPOS%+1);
+#q19[21]=0;#q20[21]=0;#q16[22]=(%XPOS%+1);#q17[22]=(%YPOS%+1);
+#q18[22]=(%ZPOS%+2);#q19[22]=0;#q20[22]=0;#q16[23]=(%XPOS%+0);
+#q17[23]=(%YPOS%+1);#q18[23]=(%ZPOS%+3);#q19[23]=0;#q20[23]=0;
+#q16[24]=(%XPOS%+0);#q17[24]=(%YPOS%+1);#q18[24]=(%ZPOS%+1);#q19[24]=0;
+#q20[24]=0;#q16[25]=(%XPOS%+1);#q17[25]=(%YPOS%+0);#q18[25]=(%ZPOS%+2);
+#q19[25]=0;#q20[25]=0;#q16[26]=(%XPOS%+0);#q17[26]=(%YPOS%-1);
+#q18[26]=(%ZPOS%+2);#q19[26]=0;#q20[26]=0;#q16[27]=(%XPOS%+0);
+#q17[27]=(%YPOS%+0);#q18[27]=(%ZPOS%+3);#q19[27]=0;#q20[27]=0;
+#q16[28]=(%XPOS%+0);#q17[28]=(%YPOS%+0);#q18[28]=(%ZPOS%+1);#q19[28]=0;
+#q20[28]=0;#q16[29]=(%XPOS%-1);#q17[29]=(%YPOS%+3);#q18[29]=(%ZPOS%+2);
+#q19[29]=0;#q20[29]=0;#q16[30]=(%XPOS%-1);#q17[30]=(%YPOS%+2);
+#q18[30]=(%ZPOS%+3);#q19[30]=0;#q20[30]=0;#q16[31]=(%XPOS%-1);
+#q17[31]=(%YPOS%+2);#q18[31]=(%ZPOS%+1);#q19[31]=0;#q20[31]=0;
+#q16[32]=(%XPOS%-1);#q17[32]=(%YPOS%+1);#q18[32]=(%ZPOS%+3);#q19[32]=0;
+#q20[32]=0;#q16[33]=(%XPOS%-1);#q17[33]=(%YPOS%+1);#q18[33]=(%ZPOS%+1);
+#q19[33]=0;#q20[33]=0;#q16[34]=(%XPOS%-1);#q17[34]=(%YPOS%-1);
+#q18[34]=(%ZPOS%+2);#q19[34]=0;#q20[34]=0;#q16[35]=(%XPOS%-1);
+#q17[35]=(%YPOS%+0);#q18[35]=(%ZPOS%+3);#q19[35]=0;#q20[35]=0;
+#q16[36]=(%XPOS%-1);#q17[36]=(%YPOS%+0);#q18[36]=(%ZPOS%+1);#q19[36]=0;
+#q20[36]=0;#q16[37]=(%XPOS%-3);#q17[37]=(%YPOS%+2);#q18[37]=(%ZPOS%+2);
+#q19[37]=0;#q20[37]=0;#q16[38]=(%XPOS%-2);#q17[38]=(%YPOS%+3);
+#q18[38]=(%ZPOS%+2);#q19[38]=0;#q20[38]=0;#q16[39]=(%XPOS%-2);
+#q17[39]=(%YPOS%+2);#q18[39]=(%ZPOS%+3);#q19[39]=0;#q20[39]=0;
+#q16[40]=(%XPOS%-2);#q17[40]=(%YPOS%+2);#q18[40]=(%ZPOS%+1);#q19[40]=0;
+#q20[40]=0;#q16[41]=(%XPOS%-3);#q17[41]=(%YPOS%+1);#q18[41]=(%ZPOS%+2);
+#q19[41]=0;#q20[41]=0;#q16[42]=(%XPOS%-2);#q17[42]=(%YPOS%+1);
+#q18[42]=(%ZPOS%+3);#q19[42]=0;#q20[42]=0;#q16[43]=(%XPOS%-2);
+#q17[43]=(%YPOS%+1);#q18[43]=(%ZPOS%+1);#q19[43]=0;#q20[43]=0;
+#q16[44]=(%XPOS%-3);#q17[44]=(%YPOS%+0);#q18[44]=(%ZPOS%+2);#q19[44]=0;
+#q20[44]=0;#q16[45]=(%XPOS%-2);#q17[45]=(%YPOS%-1);#q18[45]=(%ZPOS%+2);
+#q19[45]=0;#q20[45]=0;#q16[46]=(%XPOS%-2);#q17[46]=(%YPOS%+0);
+#q18[46]=(%ZPOS%+3);#q19[46]=0;#q20[46]=0;#q16[47]=(%XPOS%-2);
+#q17[47]=(%YPOS%+0);#q18[47]=(%ZPOS%+1);#q19[47]=0;#q20[47]=0;
+#q16[48]=(%XPOS%+2);#q17[48]=(%YPOS%+0);#q18[48]=(%ZPOS%+1);#q19[48]=0;
+#q20[48]=0;#q16[49]=(%XPOS%+1);#q17[49]=(%YPOS%+1);#q18[49]=(%ZPOS%+1);
+#q19[49]=0;#q20[49]=0;#q16[50]=(%XPOS%+1);#q17[50]=(%YPOS%-1);
+#q18[50]=(%ZPOS%+1);#q19[50]=0;#q20[50]=0;#q16[51]=(%XPOS%+1);
+#q17[51]=(%YPOS%+0);#q18[51]=(%ZPOS%+0);#q19[51]=0;#q20[51]=0;
+#q16[52]=(%XPOS%-1);#q17[52]=(%YPOS%-1);#q18[52]=(%ZPOS%+1);#q19[52]=0;
+#q20[52]=0;#q16[53]=(%XPOS%+0);#q17[53]=(%YPOS%-2);#q18[53]=(%ZPOS%+1);
+#q19[53]=0;#q20[53]=0;#q16[54]=(%XPOS%+0);#q17[54]=(%YPOS%-1);
+#q18[54]=(%ZPOS%+0);#q19[54]=0;#q20[54]=0;#q16[55]=(%XPOS%+0);
+#q17[55]=(%YPOS%-2);#q18[55]=(%ZPOS%+2);#q19[55]=0;#q20[55]=0;
+#q16[56]=(%XPOS%-2);#q17[56]=(%YPOS%-2);#q18[56]=(%ZPOS%+2);#q19[56]=0;
+#q20[56]=0;#q16[57]=(%XPOS%-1);#q17[57]=(%YPOS%-3);#q18[57]=(%ZPOS%+2);
+#q19[57]=0;#q20[57]=0;#q16[58]=(%XPOS%-1);#q17[58]=(%YPOS%-2);
+#q18[58]=(%ZPOS%+3);#q19[58]=0;#q20[58]=0;#q16[59]=(%XPOS%-1);
+#q17[59]=(%YPOS%-2);#q18[59]=(%ZPOS%+1);#q19[59]=0;#q20[59]=0;
+#q16[60]=(%XPOS%+2);#q17[60]=(%YPOS%+0);#q18[60]=(%ZPOS%-1);#q19[60]=0;
+#q20[60]=0;#q16[61]=(%XPOS%+1);#q17[61]=(%YPOS%+1);#q18[61]=(%ZPOS%-1);
+#q19[61]=0;#q20[61]=0;#q16[62]=(%XPOS%+1);#q17[62]=(%YPOS%-1);
+#q18[62]=(%ZPOS%-1);#q19[62]=0;#q20[62]=0;#q16[63]=(%XPOS%+1);
+#q17[63]=(%YPOS%+0);#q18[63]=(%ZPOS%-2);#q19[63]=0;#q20[63]=0;
+#q16[64]=(%XPOS%-1);#q17[64]=(%YPOS%+0);#q18[64]=(%ZPOS%-1);#q19[64]=0;
+#q20[64]=0;#q16[65]=(%XPOS%+0);#q17[65]=(%YPOS%+1);#q18[65]=(%ZPOS%-1);
+#q19[65]=0;#q20[65]=0;#q16[66]=(%XPOS%+0);#q17[66]=(%YPOS%-1);
+#q18[66]=(%ZPOS%-1);#q19[66]=0;#q20[66]=0;#q16[67]=(%XPOS%+0);
+#q17[67]=(%YPOS%+0);#q18[67]=(%ZPOS%+0);#q19[67]=0;#q20[67]=0;
+#q16[68]=(%XPOS%+0);#q17[68]=(%YPOS%+0);#q18[68]=(%ZPOS%-2);#q19[68]=0;
+#q20[68]=0;#q16[69]=(%XPOS%-2);#q17[69]=(%YPOS%+1);#q18[69]=(%ZPOS%-1);
+#q19[69]=0;#q20[69]=0;#q16[70]=(%XPOS%-1);#q17[70]=(%YPOS%+2);
+#q18[70]=(%ZPOS%-1);#q19[70]=0;#q20[70]=0;#q16[71]=(%XPOS%-1);
+#q17[71]=(%YPOS%+1);#q18[71]=(%ZPOS%+0);#q19[71]=0;#q20[71]=0;
+#q16[72]=(%XPOS%-1);#q17[72]=(%YPOS%+1);#q18[72]=(%ZPOS%-2);#q19[72]=0;
+#q20[72]=0;#q16[73]=(%XPOS%+1);#q17[73]=(%YPOS%+3);#q18[73]=(%ZPOS%-2);
+#q19[73]=0;#q20[73]=0;#q16[74]=(%XPOS%-1);#q17[74]=(%YPOS%+3);
+#q18[74]=(%ZPOS%-2);#q19[74]=0;#q20[74]=0;#q16[75]=(%XPOS%+0);
+#q17[75]=(%YPOS%+4);#q18[75]=(%ZPOS%-2);#q19[75]=0;#q20[75]=0;
+#q16[76]=(%XPOS%+0);#q17[76]=(%YPOS%+2);#q18[76]=(%ZPOS%-2);#q19[76]=0;
+#q20[76]=0;#q16[77]=(%XPOS%+0);#q17[77]=(%YPOS%+3);#q18[77]=(%ZPOS%-1);
+#q19[77]=0;#q20[77]=0;#q16[78]=(%XPOS%+0);#q17[78]=(%YPOS%+3);
+#q18[78]=(%ZPOS%-3);#q19[78]=0;#q20[78]=0;#q16[79]=(%XPOS%+12581);
+#q17[79]=(%YPOS%-18);#q18[79]=(%ZPOS%-968);#q19[79]=0;#q20[79]=0;
+#q16[80]=(%XPOS%+12579);#q17[80]=(%YPOS%-18);#q18[80]=(%ZPOS%-968);
+#q19[80]=0;#q20[80]=0;#q16[81]=(%XPOS%+12580);#q17[81]=(%YPOS%-17);
+#q18[81]=(%ZPOS%-968);#q19[81]=0;#q20[81]=0;#q16[82]=(%XPOS%+12580);
+#q17[82]=(%YPOS%-19);#q18[82]=(%ZPOS%-968);#q19[82]=0;#q20[82]=0;
+#q16[83]=(%XPOS%+12580);#q17[83]=(%YPOS%-18);#q18[83]=(%ZPOS%-967);
+#q19[83]=0;#q20[83]=0;#q16[84]=(%XPOS%+12580);#q17[84]=(%YPOS%-18);
+#q18[84]=(%ZPOS%-969);#q19[84]=0;#q20[84]=0;ELSEIF(%DIRECTION%="S");
+#q16[0]=(%XPOS%-2);#q17[0]=(%YPOS%+2);#q18[0]=(%ZPOS%+0);#q19[0]=265;
+#q20[0]=339;#q16[1]=(%XPOS%-2);#q17[1]=(%YPOS%+1);#q18[1]=(%ZPOS%+0);
+#q19[1]=264;#q20[1]=6;#q16[2]=(%XPOS%-2);#q17[2]=(%YPOS%+0);
+#q18[2]=(%ZPOS%+0);#q19[2]=264;#q20[2]=31;#q16[3]=(%XPOS%-2);
+#q17[3]=(%YPOS%+2);#q18[3]=(%ZPOS%-1);#q19[3]=291;#q20[3]=340;
+#q16[4]=(%XPOS%-2);#q17[4]=(%YPOS%+1);#q18[4]=(%ZPOS%-1);#q19[4]=292;
+#q20[4]=5;#q16[5]=(%XPOS%-2);#q17[5]=(%YPOS%+0);#q18[5]=(%ZPOS%-1);
+#q19[5]=291;#q20[5]=29;#q16[6]=(%XPOS%-2);#q17[6]=(%YPOS%+2);
+#q18[6]=(%ZPOS%-2);#q19[6]=314;#q20[6]=343;#q16[7]=(%XPOS%-2);
+#q17[7]=(%YPOS%+1);#q18[7]=(%ZPOS%-2);#q19[7]=313;#q20[7]=5;
+#q16[8]=(%XPOS%-2);#q17[8]=(%YPOS%+0);#q18[8]=(%ZPOS%-2);#q19[8]=313;
+#q20[8]=23;#q16[9]=(%XPOS%-1);#q17[9]=(%YPOS%+0);#q18[9]=(%ZPOS%+1);
+#q19[9]=238;#q20[9]=35;#q16[10]=(%XPOS%-1);#q17[10]=(%YPOS%-1);
+#q18[10]=(%ZPOS%+0);#q19[10]=263;#q20[10]=54;#q16[11]=(%XPOS%-2);
+#q17[11]=(%YPOS%-2);#q18[11]=(%ZPOS%-1);#q19[11]=290;#q20[11]=50;
+#q16[12]=(%XPOS%+1);#q17[12]=(%YPOS%+0);#q18[12]=(%ZPOS%+1);#q19[12]=491;
+#q20[12]=32;#q16[13]=(%XPOS%+1);#q17[13]=(%YPOS%+0);#q18[13]=(%ZPOS%+0);
+#q19[13]=461;#q20[13]=48;#q16[14]=(%XPOS%+1);#q17[14]=(%YPOS%+1);
+#q18[14]=(%ZPOS%-1);#q19[14]=418;#q20[14]=10;#q16[15]=(%XPOS%+2);
+#q17[15]=(%YPOS%+3);#q18[15]=(%ZPOS%+0);#q19[15]=449;#q20[15]=326;
+#q16[16]=(%XPOS%+968);#q17[16]=(%YPOS%-18);#q18[16]=(%ZPOS%+12580);
+#q19[16]=212;#q20[16]=10;#q16[17]=(%XPOS%+968);#q17[17]=(%YPOS%-18);
+#q18[17]=(%ZPOS%+12580);#q19[17]=222;#q20[17]=9;#q16[18]=(%XPOS%-2);
+#q17[18]=(%YPOS%+2);#q18[18]=(%ZPOS%+1);#q19[18]=90;#q20[18]=0;
+#q16[19]=(%XPOS%-2);#q17[19]=(%YPOS%+3);#q18[19]=(%ZPOS%+0);#q19[19]=90;
+#q20[19]=0;#q16[20]=(%XPOS%-3);#q17[20]=(%YPOS%+2);#q18[20]=(%ZPOS%+0);
+#q19[20]=90;#q20[20]=0;#q16[21]=(%XPOS%-1);#q17[21]=(%YPOS%+2);
+#q18[21]=(%ZPOS%+0);#q19[21]=90;#q20[21]=0;#q16[22]=(%XPOS%-2);
+#q17[22]=(%YPOS%+1);#q18[22]=(%ZPOS%+1);#q19[22]=90;#q20[22]=0;
+#q16[23]=(%XPOS%-3);#q17[23]=(%YPOS%+1);#q18[23]=(%ZPOS%+0);#q19[23]=90;
+#q20[23]=0;#q16[24]=(%XPOS%-1);#q17[24]=(%YPOS%+1);#q18[24]=(%ZPOS%+0);
+#q19[24]=90;#q20[24]=0;#q16[25]=(%XPOS%-2);#q17[25]=(%YPOS%+0);
+#q18[25]=(%ZPOS%+1);#q19[25]=90;#q20[25]=0;#q16[26]=(%XPOS%-2);
+#q17[26]=(%YPOS%-1);#q18[26]=(%ZPOS%+0);#q19[26]=90;#q20[26]=0;
+#q16[27]=(%XPOS%-3);#q17[27]=(%YPOS%+0);#q18[27]=(%ZPOS%+0);#q19[27]=90;
+#q20[27]=0;#q16[28]=(%XPOS%-1);#q17[28]=(%YPOS%+0);#q18[28]=(%ZPOS%+0);
+#q19[28]=90;#q20[28]=0;#q16[29]=(%XPOS%-2);#q17[29]=(%YPOS%+3);
+#q18[29]=(%ZPOS%-1);#q19[29]=90;#q20[29]=0;#q16[30]=(%XPOS%-3);
+#q17[30]=(%YPOS%+2);#q18[30]=(%ZPOS%-1);#q19[30]=90;#q20[30]=0;
+#q16[31]=(%XPOS%-1);#q17[31]=(%YPOS%+2);#q18[31]=(%ZPOS%-1);#q19[31]=90;
+#q20[31]=0;#q16[32]=(%XPOS%-3);#q17[32]=(%YPOS%+1);#q18[32]=(%ZPOS%-1);
+#q19[32]=90;#q20[32]=0;#q16[33]=(%XPOS%-1);#q17[33]=(%YPOS%+1);
+#q18[33]=(%ZPOS%-1);#q19[33]=90;#q20[33]=0;#q16[34]=(%XPOS%-2);
+#q17[34]=(%YPOS%-1);#q18[34]=(%ZPOS%-1);#q19[34]=90;#q20[34]=0;
+#q16[35]=(%XPOS%-3);#q17[35]=(%YPOS%+0);#q18[35]=(%ZPOS%-1);#q19[35]=90;
+#q20[35]=0;#q16[36]=(%XPOS%-1);#q17[36]=(%YPOS%+0);#q18[36]=(%ZPOS%-1);
+#q19[36]=90;#q20[36]=0;#q16[37]=(%XPOS%-2);#q17[37]=(%YPOS%+2);
+#q18[37]=(%ZPOS%-3);#q19[37]=90;#q20[37]=0;#q16[38]=(%XPOS%-2);
+#q17[38]=(%YPOS%+3);#q18[38]=(%ZPOS%-2);#q19[38]=90;#q20[38]=0;
+#q16[39]=(%XPOS%-3);#q17[39]=(%YPOS%+2);#q18[39]=(%ZPOS%-2);#q19[39]=90;
+#q20[39]=0;#q16[40]=(%XPOS%-1);#q17[40]=(%YPOS%+2);#q18[40]=(%ZPOS%-2);
+#q19[40]=90;#q20[40]=0;#q16[41]=(%XPOS%-2);#q17[41]=(%YPOS%+1);
+#q18[41]=(%ZPOS%-3);#q19[41]=90;#q20[41]=0;#q16[42]=(%XPOS%-3);
+#q17[42]=(%YPOS%+1);#q18[42]=(%ZPOS%-2);#q19[42]=90;#q20[42]=0;
+#q16[43]=(%XPOS%-1);#q17[43]=(%YPOS%+1);#q18[43]=(%ZPOS%-2);#q19[43]=90;
+#q20[43]=0;#q16[44]=(%XPOS%-2);#q17[44]=(%YPOS%+0);#q18[44]=(%ZPOS%-3);
+#q19[44]=90;#q20[44]=0;#q16[45]=(%XPOS%-2);#q17[45]=(%YPOS%-1);
+#q18[45]=(%ZPOS%-2);#q19[45]=90;#q20[45]=0;#q16[46]=(%XPOS%-3);
+#q17[46]=(%YPOS%+0);#q18[46]=(%ZPOS%-2);#q19[46]=90;#q20[46]=0;
+#q16[47]=(%XPOS%-1);#q17[47]=(%YPOS%+0);#q18[47]=(%ZPOS%-2);#q19[47]=90;
+#q20[47]=0;#q16[48]=(%XPOS%-1);#q17[48]=(%YPOS%+0);#q18[48]=(%ZPOS%+2);
+#q19[48]=90;#q20[48]=0;#q16[49]=(%XPOS%-1);#q17[49]=(%YPOS%+1);
+#q18[49]=(%ZPOS%+1);#q19[49]=90;#q20[49]=0;#q16[50]=(%XPOS%-1);
+#q17[50]=(%YPOS%-1);#q18[50]=(%ZPOS%+1);#q19[50]=90;#q20[50]=0;
+#q16[51]=(%XPOS%+0);#q17[51]=(%YPOS%+0);#q18[51]=(%ZPOS%+1);#q19[51]=90;
+#q20[51]=0;#q16[52]=(%XPOS%-1);#q17[52]=(%YPOS%-1);#q18[52]=(%ZPOS%-1);
+#q19[52]=90;#q20[52]=0;#q16[53]=(%XPOS%-1);#q17[53]=(%YPOS%-2);
+#q18[53]=(%ZPOS%+0);#q19[53]=90;#q20[53]=0;#q16[54]=(%XPOS%+0);
+#q17[54]=(%YPOS%-1);#q18[54]=(%ZPOS%+0);#q19[54]=90;#q20[54]=0;
+#q16[55]=(%XPOS%-2);#q17[55]=(%YPOS%-2);#q18[55]=(%ZPOS%+0);#q19[55]=90;
+#q20[55]=0;#q16[56]=(%XPOS%-2);#q17[56]=(%YPOS%-2);#q18[56]=(%ZPOS%-2);
+#q19[56]=90;#q20[56]=0;#q16[57]=(%XPOS%-2);#q17[57]=(%YPOS%-3);
+#q18[57]=(%ZPOS%-1);#q19[57]=90;#q20[57]=0;#q16[58]=(%XPOS%-3);
+#q17[58]=(%YPOS%-2);#q18[58]=(%ZPOS%-1);#q19[58]=90;#q20[58]=0;
+#q16[59]=(%XPOS%-1);#q17[59]=(%YPOS%-2);#q18[59]=(%ZPOS%-1);#q19[59]=90;
+#q20[59]=0;#q16[60]=(%XPOS%+1);#q17[60]=(%YPOS%+0);#q18[60]=(%ZPOS%+2);
+#q19[60]=90;#q20[60]=0;#q16[61]=(%XPOS%+1);#q17[61]=(%YPOS%+1);
+#q18[61]=(%ZPOS%+1);#q19[61]=90;#q20[61]=0;#q16[62]=(%XPOS%+1);
+#q17[62]=(%YPOS%-1);#q18[62]=(%ZPOS%+1);#q19[62]=90;#q20[62]=0;
+#q16[63]=(%XPOS%+2);#q17[63]=(%YPOS%+0);#q18[63]=(%ZPOS%+1);#q19[63]=90;
+#q20[63]=0;#q16[64]=(%XPOS%+1);#q17[64]=(%YPOS%+0);#q18[64]=(%ZPOS%-1);
+#q19[64]=90;#q20[64]=0;#q16[65]=(%XPOS%+1);#q17[65]=(%YPOS%+1);
+#q18[65]=(%ZPOS%+0);#q19[65]=90;#q20[65]=0;#q16[66]=(%XPOS%+1);
+#q17[66]=(%YPOS%-1);#q18[66]=(%ZPOS%+0);#q19[66]=90;#q20[66]=0;
+#q16[67]=(%XPOS%+0);#q17[67]=(%YPOS%+0);#q18[67]=(%ZPOS%+0);#q19[67]=90;
+#q20[67]=0;#q16[68]=(%XPOS%+2);#q17[68]=(%YPOS%+0);#q18[68]=(%ZPOS%+0);
+#q19[68]=90;#q20[68]=0;#q16[69]=(%XPOS%+1);#q17[69]=(%YPOS%+1);
+#q18[69]=(%ZPOS%-2);#q19[69]=90;#q20[69]=0;#q16[70]=(%XPOS%+1);
+#q17[70]=(%YPOS%+2);#q18[70]=(%ZPOS%-1);#q19[70]=90;#q20[70]=0;
+#q16[71]=(%XPOS%+0);#q17[71]=(%YPOS%+1);#q18[71]=(%ZPOS%-1);#q19[71]=90;
+#q20[71]=0;#q16[72]=(%XPOS%+2);#q17[72]=(%YPOS%+1);#q18[72]=(%ZPOS%-1);
+#q19[72]=90;#q20[72]=0;#q16[73]=(%XPOS%+2);#q17[73]=(%YPOS%+3);
+#q18[73]=(%ZPOS%+1);#q19[73]=90;#q20[73]=0;#q16[74]=(%XPOS%+2);
+#q17[74]=(%YPOS%+3);#q18[74]=(%ZPOS%-1);#q19[74]=90;#q20[74]=0;
+#q16[75]=(%XPOS%+2);#q17[75]=(%YPOS%+4);#q18[75]=(%ZPOS%+0);#q19[75]=90;
+#q20[75]=0;#q16[76]=(%XPOS%+2);#q17[76]=(%YPOS%+2);#q18[76]=(%ZPOS%+0);
+#q19[76]=90;#q20[76]=0;#q16[77]=(%XPOS%+1);#q17[77]=(%YPOS%+3);
+#q18[77]=(%ZPOS%+0);#q19[77]=90;#q20[77]=0;#q16[78]=(%XPOS%+3);
+#q17[78]=(%YPOS%+3);#q18[78]=(%ZPOS%+0);#q19[78]=90;#q20[78]=0;
+#q16[79]=(%XPOS%+968);#q17[79]=(%YPOS%-18);#q18[79]=(%ZPOS%+12581);
+#q19[79]=90;#q20[79]=0;#q16[80]=(%XPOS%+968);#q17[80]=(%YPOS%-18);
+#q18[80]=(%ZPOS%+12579);#q19[80]=90;#q20[80]=0;#q16[81]=(%XPOS%+968);
+#q17[81]=(%YPOS%-17);#q18[81]=(%ZPOS%+12580);#q19[81]=90;#q20[81]=0;
+#q16[82]=(%XPOS%+968);#q17[82]=(%YPOS%-19);#q18[82]=(%ZPOS%+12580);
+#q19[82]=90;#q20[82]=0;#q16[83]=(%XPOS%+967);#q17[83]=(%YPOS%-18);
+#q18[83]=(%ZPOS%+12580);#q19[83]=90;#q20[83]=0;#q16[84]=(%XPOS%+969);
+#q17[84]=(%YPOS%-18);#q18[84]=(%ZPOS%+12580);#q19[84]=90;#q20[84]=0;
+ELSEIF(%DIRECTION%="W");#q16[0]=(%XPOS%+0);#q17[0]=(%YPOS%+2);
+#q18[0]=(%ZPOS%-2);#q19[0]=355;#q20[0]=339;#q16[1]=(%XPOS%+0);
+#q17[1]=(%YPOS%+1);#q18[1]=(%ZPOS%-2);#q19[1]=354;#q20[1]=6;
+#q16[2]=(%XPOS%+0);#q17[2]=(%YPOS%+0);#q18[2]=(%ZPOS%-2);#q19[2]=354;
+#q20[2]=31;#q16[3]=(%XPOS%+1);#q17[3]=(%YPOS%+2);#q18[3]=(%ZPOS%-2);
+#q19[3]=381;#q20[3]=340;#q16[4]=(%XPOS%+1);#q17[4]=(%YPOS%+1);
+#q18[4]=(%ZPOS%-2);#q19[4]=382;#q20[4]=5;#q16[5]=(%XPOS%+1);
+#q17[5]=(%YPOS%+0);#q18[5]=(%ZPOS%-2);#q19[5]=381;#q20[5]=29;
+#q16[6]=(%XPOS%+2);#q17[6]=(%YPOS%+2);#q18[6]=(%ZPOS%-2);#q19[6]=404;
+#q20[6]=343;#q16[7]=(%XPOS%+2);#q17[7]=(%YPOS%+1);#q18[7]=(%ZPOS%-2);
+#q19[7]=403;#q20[7]=5;#q16[8]=(%XPOS%+2);#q17[8]=(%YPOS%+0);
+#q18[8]=(%ZPOS%-2);#q19[8]=403;#q20[8]=23;#q16[9]=(%XPOS%-1);
+#q17[9]=(%YPOS%+0);#q18[9]=(%ZPOS%-1);#q19[9]=328;#q20[9]=35;
+#q16[10]=(%XPOS%+0);#q17[10]=(%YPOS%-1);#q18[10]=(%ZPOS%-1);#q19[10]=353;
+#q20[10]=54;#q16[11]=(%XPOS%+1);#q17[11]=(%YPOS%-2);#q18[11]=(%ZPOS%-2);
+#q19[11]=380;#q20[11]=50;#q16[12]=(%XPOS%-1);#q17[12]=(%YPOS%+0);
+#q18[12]=(%ZPOS%+1);#q19[12]=221;#q20[12]=32;#q16[13]=(%XPOS%+0);
+#q17[13]=(%YPOS%+0);#q18[13]=(%ZPOS%+1);#q19[13]=191;#q20[13]=48;
+#q16[14]=(%XPOS%+1);#q17[14]=(%YPOS%+1);#q18[14]=(%ZPOS%+1);#q19[14]=508;
+#q20[14]=10;#q16[15]=(%XPOS%+0);#q17[15]=(%YPOS%+3);#q18[15]=(%ZPOS%+2);
+#q19[15]=539;#q20[15]=326;#q16[16]=(%XPOS%-12580);#q17[16]=(%YPOS%-18);
+#q18[16]=(%ZPOS%+968);#q19[16]=302;#q20[16]=10;#q16[17]=(%XPOS%-12580);
+#q17[17]=(%YPOS%-18);#q18[17]=(%ZPOS%+968);#q19[17]=312;#q20[17]=9;
+#q16[18]=(%XPOS%-1);#q17[18]=(%YPOS%+2);#q18[18]=(%ZPOS%-2);#q19[18]=180;
+#q20[18]=0;#q16[19]=(%XPOS%+0);#q17[19]=(%YPOS%+3);#q18[19]=(%ZPOS%-2);
+#q19[19]=180;#q20[19]=0;#q16[20]=(%XPOS%+0);#q17[20]=(%YPOS%+2);
+#q18[20]=(%ZPOS%-3);#q19[20]=180;#q20[20]=0;#q16[21]=(%XPOS%+0);
+#q17[21]=(%YPOS%+2);#q18[21]=(%ZPOS%-1);#q19[21]=180;#q20[21]=0;
+#q16[22]=(%XPOS%-1);#q17[22]=(%YPOS%+1);#q18[22]=(%ZPOS%-2);#q19[22]=180;
+#q20[22]=0;#q16[23]=(%XPOS%+0);#q17[23]=(%YPOS%+1);#q18[23]=(%ZPOS%-3);
+#q19[23]=180;#q20[23]=0;#q16[24]=(%XPOS%+0);#q17[24]=(%YPOS%+1);
+#q18[24]=(%ZPOS%-1);#q19[24]=180;#q20[24]=0;#q16[25]=(%XPOS%-1);
+#q17[25]=(%YPOS%+0);#q18[25]=(%ZPOS%-2);#q19[25]=180;#q20[25]=0;
+#q16[26]=(%XPOS%+0);#q17[26]=(%YPOS%-1);#q18[26]=(%ZPOS%-2);#q19[26]=180;
+#q20[26]=0;#q16[27]=(%XPOS%+0);#q17[27]=(%YPOS%+0);#q18[27]=(%ZPOS%-3);
+#q19[27]=180;#q20[27]=0;#q16[28]=(%XPOS%+0);#q17[28]=(%YPOS%+0);
+#q18[28]=(%ZPOS%-1);#q19[28]=180;#q20[28]=0;#q16[29]=(%XPOS%+1);
+#q17[29]=(%YPOS%+3);#q18[29]=(%ZPOS%-2);#q19[29]=180;#q20[29]=0;
+#q16[30]=(%XPOS%+1);#q17[30]=(%YPOS%+2);#q18[30]=(%ZPOS%-3);#q19[30]=180;
+#q20[30]=0;#q16[31]=(%XPOS%+1);#q17[31]=(%YPOS%+2);#q18[31]=(%ZPOS%-1);
+#q19[31]=180;#q20[31]=0;#q16[32]=(%XPOS%+1);#q17[32]=(%YPOS%+1);
+#q18[32]=(%ZPOS%-3);#q19[32]=180;#q20[32]=0;#q16[33]=(%XPOS%+1);
+#q17[33]=(%YPOS%+1);#q18[33]=(%ZPOS%-1);#q19[33]=180;#q20[33]=0;
+#q16[34]=(%XPOS%+1);#q17[34]=(%YPOS%-1);#q18[34]=(%ZPOS%-2);#q19[34]=180;
+#q20[34]=0;#q16[35]=(%XPOS%+1);#q17[35]=(%YPOS%+0);#q18[35]=(%ZPOS%-3);
+#q19[35]=180;#q20[35]=0;#q16[36]=(%XPOS%+1);#q17[36]=(%YPOS%+0);
+#q18[36]=(%ZPOS%-1);#q19[36]=180;#q20[36]=0;#q16[37]=(%XPOS%+3);
+#q17[37]=(%YPOS%+2);#q18[37]=(%ZPOS%-2);#q19[37]=180;#q20[37]=0;
+#q16[38]=(%XPOS%+2);#q17[38]=(%YPOS%+3);#q18[38]=(%ZPOS%-2);#q19[38]=180;
+#q20[38]=0;#q16[39]=(%XPOS%+2);#q17[39]=(%YPOS%+2);#q18[39]=(%ZPOS%-3);
+#q19[39]=180;#q20[39]=0;#q16[40]=(%XPOS%+2);#q17[40]=(%YPOS%+2);
+#q18[40]=(%ZPOS%-1);#q19[40]=180;#q20[40]=0;#q16[41]=(%XPOS%+3);
+#q17[41]=(%YPOS%+1);#q18[41]=(%ZPOS%-2);#q19[41]=180;#q20[41]=0;
+#q16[42]=(%XPOS%+2);#q17[42]=(%YPOS%+1);#q18[42]=(%ZPOS%-3);#q19[42]=180;
+#q20[42]=0;#q16[43]=(%XPOS%+2);#q17[43]=(%YPOS%+1);#q18[43]=(%ZPOS%-1);
+#q19[43]=180;#q20[43]=0;#q16[44]=(%XPOS%+3);#q17[44]=(%YPOS%+0);
+#q18[44]=(%ZPOS%-2);#q19[44]=180;#q20[44]=0;#q16[45]=(%XPOS%+2);
+#q17[45]=(%YPOS%-1);#q18[45]=(%ZPOS%-2);#q19[45]=180;#q20[45]=0;
+#q16[46]=(%XPOS%+2);#q17[46]=(%YPOS%+0);#q18[46]=(%ZPOS%-3);#q19[46]=180;
+#q20[46]=0;#q16[47]=(%XPOS%+2);#q17[47]=(%YPOS%+0);#q18[47]=(%ZPOS%-1);
+#q19[47]=180;#q20[47]=0;#q16[48]=(%XPOS%-2);#q17[48]=(%YPOS%+0);
+#q18[48]=(%ZPOS%-1);#q19[48]=180;#q20[48]=0;#q16[49]=(%XPOS%-1);
+#q17[49]=(%YPOS%+1);#q18[49]=(%ZPOS%-1);#q19[49]=180;#q20[49]=0;
+#q16[50]=(%XPOS%-1);#q17[50]=(%YPOS%-1);#q18[50]=(%ZPOS%-1);#q19[50]=180;
+#q20[50]=0;#q16[51]=(%XPOS%-1);#q17[51]=(%YPOS%+0);#q18[51]=(%ZPOS%+0);
+#q19[51]=180;#q20[51]=0;#q16[52]=(%XPOS%+1);#q17[52]=(%YPOS%-1);
+#q18[52]=(%ZPOS%-1);#q19[52]=180;#q20[52]=0;#q16[53]=(%XPOS%+0);
+#q17[53]=(%YPOS%-2);#q18[53]=(%ZPOS%-1);#q19[53]=180;#q20[53]=0;
+#q16[54]=(%XPOS%+0);#q17[54]=(%YPOS%-1);#q18[54]=(%ZPOS%+0);#q19[54]=180;
+#q20[54]=0;#q16[55]=(%XPOS%+0);#q17[55]=(%YPOS%-2);#q18[55]=(%ZPOS%-2);
+#q19[55]=180;#q20[55]=0;#q16[56]=(%XPOS%+2);#q17[56]=(%YPOS%-2);
+#q18[56]=(%ZPOS%-2);#q19[56]=180;#q20[56]=0;#q16[57]=(%XPOS%+1);
+#q17[57]=(%YPOS%-3);#q18[57]=(%ZPOS%-2);#q19[57]=180;#q20[57]=0;
+#q16[58]=(%XPOS%+1);#q17[58]=(%YPOS%-2);#q18[58]=(%ZPOS%-3);#q19[58]=180;
+#q20[58]=0;#q16[59]=(%XPOS%+1);#q17[59]=(%YPOS%-2);#q18[59]=(%ZPOS%-1);
+#q19[59]=180;#q20[59]=0;#q16[60]=(%XPOS%-2);#q17[60]=(%YPOS%+0);
+#q18[60]=(%ZPOS%+1);#q19[60]=180;#q20[60]=0;#q16[61]=(%XPOS%-1);
+#q17[61]=(%YPOS%+1);#q18[61]=(%ZPOS%+1);#q19[61]=180;#q20[61]=0;
+#q16[62]=(%XPOS%-1);#q17[62]=(%YPOS%-1);#q18[62]=(%ZPOS%+1);#q19[62]=180;
+#q20[62]=0;#q16[63]=(%XPOS%-1);#q17[63]=(%YPOS%+0);#q18[63]=(%ZPOS%+2);
+#q19[63]=180;#q20[63]=0;#q16[64]=(%XPOS%+1);#q17[64]=(%YPOS%+0);
+#q18[64]=(%ZPOS%+1);#q19[64]=180;#q20[64]=0;#q16[65]=(%XPOS%+0);
+#q17[65]=(%YPOS%+1);#q18[65]=(%ZPOS%+1);#q19[65]=180;#q20[65]=0;
+#q16[66]=(%XPOS%+0);#q17[66]=(%YPOS%-1);#q18[66]=(%ZPOS%+1);#q19[66]=180;
+#q20[66]=0;#q16[67]=(%XPOS%+0);#q17[67]=(%YPOS%+0);#q18[67]=(%ZPOS%+0);
+#q19[67]=180;#q20[67]=0;#q16[68]=(%XPOS%+0);#q17[68]=(%YPOS%+0);
+#q18[68]=(%ZPOS%+2);#q19[68]=180;#q20[68]=0;#q16[69]=(%XPOS%+2);
+#q17[69]=(%YPOS%+1);#q18[69]=(%ZPOS%+1);#q19[69]=180;#q20[69]=0;
+#q16[70]=(%XPOS%+1);#q17[70]=(%YPOS%+2);#q18[70]=(%ZPOS%+1);#q19[70]=180;
+#q20[70]=0;#q16[71]=(%XPOS%+1);#q17[71]=(%YPOS%+1);#q18[71]=(%ZPOS%+0);
+#q19[71]=180;#q20[71]=0;#q16[72]=(%XPOS%+1);#q17[72]=(%YPOS%+1);
+#q18[72]=(%ZPOS%+2);#q19[72]=180;#q20[72]=0;#q16[73]=(%XPOS%-1);
+#q17[73]=(%YPOS%+3);#q18[73]=(%ZPOS%+2);#q19[73]=180;#q20[73]=0;
+#q16[74]=(%XPOS%+1);#q17[74]=(%YPOS%+3);#q18[74]=(%ZPOS%+2);#q19[74]=180;
+#q20[74]=0;#q16[75]=(%XPOS%+0);#q17[75]=(%YPOS%+4);#q18[75]=(%ZPOS%+2);
+#q19[75]=180;#q20[75]=0;#q16[76]=(%XPOS%+0);#q17[76]=(%YPOS%+2);
+#q18[76]=(%ZPOS%+2);#q19[76]=180;#q20[76]=0;#q16[77]=(%XPOS%+0);
+#q17[77]=(%YPOS%+3);#q18[77]=(%ZPOS%+1);#q19[77]=180;#q20[77]=0;
+#q16[78]=(%XPOS%+0);#q17[78]=(%YPOS%+3);#q18[78]=(%ZPOS%+3);#q19[78]=180;
+#q20[78]=0;#q16[79]=(%XPOS%-12581);#q17[79]=(%YPOS%-18);
+#q18[79]=(%ZPOS%+968);#q19[79]=180;#q20[79]=0;#q16[80]=(%XPOS%-12579);
+#q17[80]=(%YPOS%-18);#q18[80]=(%ZPOS%+968);#q19[80]=180;#q20[80]=0;
+#q16[81]=(%XPOS%-12580);#q17[81]=(%YPOS%-17);#q18[81]=(%ZPOS%+968);
+#q19[81]=180;#q20[81]=0;#q16[82]=(%XPOS%-12580);#q17[82]=(%YPOS%-19);
+#q18[82]=(%ZPOS%+968);#q19[82]=180;#q20[82]=0;#q16[83]=(%XPOS%-12580);
+#q17[83]=(%YPOS%-18);#q18[83]=(%ZPOS%+967);#q19[83]=180;#q20[83]=0;
+#q16[84]=(%XPOS%-12580);#q17[84]=(%YPOS%-18);#q18[84]=(%ZPOS%+969);
+#q19[84]=180;#q20[84]=0;ENDIF;#q21=0;#q22=8;#q23=9;#q24=10;#q25=11;#q26=12;
+#q27=13;#q28=14;#q29=15;#q30=16;#q31=17;#q32=%XPOS%;#q33=%YPOS%;#q34=%ZPOS%;
+IF(%HEALTH%<%#q7%);
+LOG("&a[zomb]&7 %HEALTH% less than %#q7%, heal and start again");STOP;
+ENDIF;#q35=0;#q352=0;#q37=%#q21%;IF(%@automatic%);
+LOG("&a[zomb]&7 %DATETIME% Script started successfully on server rejoin");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Script started successfully on server rejoin");
+ENDIF;UNSET(@automatic);GUI(inventory);#q38=0;FOR(#q39,9,44);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%<%#q8%);#q42[%#q38%]=#q39;INC(#q38);ENDIF;ENDIF;
+NEXT;GUI;IF(%#q38%>0);LOOK(%#q19[%#q28%]%,%#q20[%#q28%]%);WAIT(1t);
+DO(%#q4%);KEY(use);WAIT(1t);UNTIL(%GUI%="GUICHEST");
+IF(%GUI% != "GUICHEST");
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not opening");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not opening");
+DISCONNECT;ENDIF;WAIT(1t);#q43=%#q38%-1;FOR(#q39,0,%#q43%);
+#q44=53+%#q42[%#q39%]%-36-1;SLOTCLICK(%#q44%,L,1);WAIT(%#q6%t);NEXT;
+SET(full);FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3);IF(%&q3%="air");
+UNSET(full);BREAK;ENDIF;NEXT;DO(%#q5%);GUI;WAIT(1t);UNTIL(%GUI%="NONE");
+IF(%GUI% != "NONE");
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not closing");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not closing");
+DISCONNECT;ENDIF;IF(%full%);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest being full");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest being full");
+DISCONNECT;ENDIF;ENDIF;GUI(inventory);SET(valid);FOR(#q39,36,42);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%<%#q8%);UNSET(valid);BREAK;ENDIF;ELSE;
+UNSET(valid);BREAK;ENDIF;NEXT;FOR(#q39,36,42);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF((%&q3% != "diamond_sword")&&(%&q3% != "air"));SLOTCLICK(%#q39%,L,1);
+WAIT(%#q6%t);ENDIF;NEXT;GUI;IF(!%valid%);
+LOOK(%#q19[%#q27%]%,%#q20[%#q27%]%);&q4="";WAIT(1t);
+&q5="stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper";
+&q5[]=SPLIT(" ",%&q5%);UNSET(cml_valid);FOREACH(&q5,&q6);
+IF(%HITID%=%&q6%);SET(cml_valid);BREAK;ENDIF;NEXT;IF(%cml_valid%);KEY(use);
+DO(100);WAIT(1t);UNTIL(%GUI% != "NONE");IF(%GUI%="NONE");
+&q4="%DATETIME% CML_open couldn't open %HITID%";ENDIF;ELSE;
+&q4="%DATETIME% CML_open called on block %HITID%";ENDIF;IF(%&q4%="");
+FOR(#q39,27,53);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);
+SLOTCLICK(%#q39%,L,1);WAIT(%#q6%t);ENDIF;ENDIF;NEXT;#q45=0;FOR(#q39,54,61);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);INC(#q45);ENDIF;ENDIF;NEXT;
+FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);
+SLOTCLICK(%#q39%,L,1);INC(#q45);WAIT(%#q6%t);ENDIF;ENDIF;IF(%#q45%>=8);BREAK;
+ENDIF;NEXT;#q46=0;FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;#q46=%#q46%+%#q41%-%#q8%;
+ENDIF;NEXT;#q45=0;FOR(#q39,54,61);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);INC(#q45);
+ENDIF;ENDIF;NEXT;ENDIF;DO(%#q5%);GUI;WAIT(1t);UNTIL(%GUI%="NONE");
+IF(%GUI% != "NONE");GUI;DO(20);WAIT(1t);UNTIL(%GUI%="NONE");ENDIF;
+IF(%#q45%=0);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to out of clean swords");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to out of clean swords");
+DISCONNECT;ENDIF;ENDIF;DO;IF(%KEY_GRAVE%);
+LOG("&a[zomb]&7 Manually stopping due to grave key press");
+LOGTO(zombieSlayer_eventlog.txt,);STOP;ENDIF;
+IF((%XPOS% != %#q32%)||(%YPOS% != %#q33%)||(%ZPOS% != %#q34%));
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to position change");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to position change");
+DISCONNECT;ENDIF;IF(%HUNGER%<=1);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to reaching critical hunger level");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to reaching critical hunger level");
+DISCONNECT;ENDIF;IF(%HEALTH%<%#q7%);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to taking damage!!!");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to taking damage!!! (%HEALTH%)");
+DISCONNECT;ENDIF;IF(%@snitch_notify%);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to snitch event too close");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to the following snitch event: %@&snitch_message%");
+DISCONNECT;ENDIF;#q47=0;#q48=0;#q49=0;FOR(#q39,1,9);SLOT(%#q39%);
+IF(%ITEM%="diamond_sword");IF(%DURABILITY%>%#q48%);#q48=%DURABILITY%;
+#q47=%#q39%;ENDIF;#q49=%#q49%+%DURABILITY%;ENDIF;NEXT;#q49=%#q49%+%#q46%;
+IF((%#q48%<%#q8%)||(%#q47%=0));GUI(inventory);#q38=0;FOR(#q39,9,44);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%<%#q8%);#q42[%#q38%]=#q39;INC(#q38);ENDIF;ENDIF;
+NEXT;GUI;IF(%#q38%>0);LOOK(%#q19[%#q28%]%,%#q20[%#q28%]%);WAIT(1t);
+DO(%#q4%);KEY(use);WAIT(1t);UNTIL(%GUI%="GUICHEST");
+IF(%GUI% != "GUICHEST");
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not opening");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not opening");
+DISCONNECT;ENDIF;WAIT(1t);#q43=%#q38%-1;FOR(#q39,0,%#q43%);
+#q44=53+%#q42[%#q39%]%-36-1;SLOTCLICK(%#q44%,L,1);WAIT(%#q6%t);NEXT;
+SET(full);FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3);IF(%&q3%="air");
+UNSET(full);BREAK;ENDIF;NEXT;DO(%#q5%);GUI;WAIT(1t);UNTIL(%GUI%="NONE");
+IF(%GUI% != "NONE");
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not closing");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not closing");
+DISCONNECT;ENDIF;IF(%full%);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest being full");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest being full");
+DISCONNECT;ENDIF;ENDIF;GUI(inventory);SET(valid);FOR(#q39,36,42);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%<%#q8%);UNSET(valid);BREAK;ENDIF;ELSE;
+UNSET(valid);BREAK;ENDIF;NEXT;FOR(#q39,36,42);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF((%&q3% != "diamond_sword")&&(%&q3% != "air"));SLOTCLICK(%#q39%,L,1);
+WAIT(%#q6%t);ENDIF;NEXT;GUI;IF(!%valid%);
+LOOK(%#q19[%#q27%]%,%#q20[%#q27%]%);&q4="";WAIT(1t);
+&q5="stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper";
+&q5[]=SPLIT(" ",%&q5%);UNSET(cml_valid);FOREACH(&q5,&q6);
+IF(%HITID%=%&q6%);SET(cml_valid);BREAK;ENDIF;NEXT;IF(%cml_valid%);KEY(use);
+DO(100);WAIT(1t);UNTIL(%GUI% != "NONE");IF(%GUI%="NONE");
+&q4="%DATETIME% CML_open couldn't open %HITID%";ENDIF;ELSE;
+&q4="%DATETIME% CML_open called on block %HITID%";ENDIF;IF(%&q4%="");
+FOR(#q39,27,53);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);
+SLOTCLICK(%#q39%,L,1);WAIT(%#q6%t);ENDIF;ENDIF;NEXT;#q45=0;FOR(#q39,54,61);
+GETSLOTITEM(%#q39%,&q3,#q40,#q41);IF(%&q3%="diamond_sword");
+#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);INC(#q45);ENDIF;ENDIF;NEXT;
+FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);
+SLOTCLICK(%#q39%,L,1);INC(#q45);WAIT(%#q6%t);ENDIF;ENDIF;IF(%#q45%>=8);BREAK;
+ENDIF;NEXT;#q46=0;FOR(#q39,0,26);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;#q46=%#q46%+%#q41%-%#q8%;
+ENDIF;NEXT;#q45=0;FOR(#q39,54,61);GETSLOTITEM(%#q39%,&q3,#q40,#q41);
+IF(%&q3%="diamond_sword");#q41=1562-%#q41%+1;IF(%#q41%>=%#q8%);INC(#q45);
+ENDIF;ENDIF;NEXT;ENDIF;DO(%#q5%);GUI;WAIT(1t);UNTIL(%GUI%="NONE");
+IF(%GUI% != "NONE");GUI;DO(20);WAIT(1t);UNTIL(%GUI%="NONE");ENDIF;
+IF(%#q45%=0);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to out of clean swords");
+LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to out of clean swords");
+DISCONNECT;ENDIF;ENDIF;ENDIF;SLOT(%#q47%);@#progress=(%#q35%*100)/%#q1%;
+LOOK(%#q19[%#q31%]%,%#q20[%#q31%]%);TRACE(3,true);
+IF(%TRACETYPE% != "ENTITY");LOOK(%#q19[%#q30%]%,%#q20[%#q30%]%);ENDIF;
+WAIT(1t);IF(%#q35%>=%#q1%);LOOK(%#q19[%#q23%]%,%#q20[%#q23%]%);&q4="";
+WAIT(1t);
+&q5="stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper";
+&q5[]=SPLIT(" ",%&q5%);UNSET(cml_valid);FOREACH(&q5,&q6);
+IF(%HITID%=%&q6%);SET(cml_valid);BREAK;ENDIF;NEXT;IF(%cml_valid%);KEY(use);
+DO(100);WAIT(1t);UNTIL(%GUI% != "NONE");IF(%GUI%="NONE");
+&q4="%DATETIME% CML_open couldn't open %HITID%";ENDIF;ELSE;
+&q4="%DATETIME% CML_open called on block %HITID%";ENDIF;IF(%&q4%="");
+FOR(#q39,0,4);GETSLOTITEM(%#q39%,&q3);IF(%&q3% != "air");WAIT(1t);
+SLOTCLICK(%#q39%,L,1);WAIT(%#q6%t);ENDIF;NEXT;ELSE;LOG(%&q4%);ENDIF;
+IF(%GUI% != "NONE");GUI;DO(20);WAIT(1t);UNTIL(%GUI%="NONE");ENDIF;
+&q7="rotten_flesh";&q7[]=SPLIT(" ",%&q7%);#q50=0;FOREACH(&q7,&q8);
+#q51[%#q50%]=0;INC(#q50);NEXT;
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ELSEIF(%GUI%="NONE");#q52=-1;#q53=-1;#q54=9;#q55=44;ENDIF;
+UNSET(no_gui);IF(%GUI%="NONE");SET(no_gui);GUI(inventory);ENDIF;#q56=0;
+#q57=0;FOR(#q50,%#q54%,%#q55%);GETSLOTITEM(%#q50%,&q9,#q58,#q59);#q56=0;
+FOREACH(&q7,&q8);IF(%&q9%=%&q8%);#q51[%#q56%]=%#q51[%#q56%]%+%#q58%;
+#q57=%#q57%+%#q58%;BREAK;ENDIF;INC(#q56);NEXT;NEXT;IF(%no_gui%);GUI;ENDIF;
+#q60=%#q57%;&q7=%&q1%;&q7[]=SPLIT(" ",%&q7%);#q50=0;FOREACH(&q7,&q8);
+#q51[%#q50%]=0;INC(#q50);NEXT;
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ELSEIF(%GUI%="NONE");#q52=-1;#q53=-1;#q54=9;#q55=44;ENDIF;
+UNSET(no_gui);IF(%GUI%="NONE");SET(no_gui);GUI(inventory);ENDIF;#q56=0;
+#q57=0;FOR(#q50,%#q54%,%#q55%);GETSLOTITEM(%#q50%,&q9,#q58,#q59);#q56=0;
+FOREACH(&q7,&q8);IF(%&q9%=%&q8%);#q51[%#q56%]=%#q51[%#q56%]%+%#q58%;
+#q57=%#q57%+%#q58%;BREAK;ENDIF;INC(#q56);NEXT;NEXT;IF(%no_gui%);GUI;ENDIF;
+#q61=%#q57%;&q7=%&q2%;&q7[]=SPLIT(" ",%&q7%);#q50=0;FOREACH(&q7,&q8);
+#q51[%#q50%]=0;INC(#q50);NEXT;
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ELSEIF(%GUI%="NONE");#q52=-1;#q53=-1;#q54=9;#q55=44;ENDIF;
+UNSET(no_gui);IF(%GUI%="NONE");SET(no_gui);GUI(inventory);ENDIF;#q56=0;
+#q57=0;FOR(#q50,%#q54%,%#q55%);GETSLOTITEM(%#q50%,&q9,#q58,#q59);#q56=0;
+FOREACH(&q7,&q8);IF(%&q9%=%&q8%);#q51[%#q56%]=%#q51[%#q56%]%+%#q58%;
+#q57=%#q57%+%#q58%;BREAK;ENDIF;INC(#q56);NEXT;NEXT;IF(%no_gui%);GUI;ENDIF;
+#q62=%#q57%;#q37=%#q21%;IF(%#q60%>0);DO;
+LOOK(%#q19[%#q37%]%,%#q20[%#q37%]%);&q4="";WAIT(1t);
+&q5="stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper";
+&q5[]=SPLIT(" ",%&q5%);UNSET(cml_valid);FOREACH(&q5,&q6);
+IF(%HITID%=%&q6%);SET(cml_valid);BREAK;ENDIF;NEXT;IF(%cml_valid%);KEY(use);
+DO(100);WAIT(1t);UNTIL(%GUI% != "NONE");IF(%GUI%="NONE");
+&q4="%DATETIME% CML_open couldn't open %HITID%";ENDIF;ELSE;
+&q4="%DATETIME% CML_open called on block %HITID%";ENDIF;#q60=0;
+FOR(#q39,54,89);GETSLOTITEM(%#q39%,&q3,#q40);IF(%&q3%="rotten_flesh");
+WAIT(1t);SLOTCLICK(%#q39%,L,1);WAIT(%#q6%t);#q60=%#q60%+%#q40%;ENDIF;NEXT;
+UNSET(flesh_remaining);FOR(#q39,54,89);GETSLOTITEM(%#q39%,&q3,#q40);
+IF(%&q3%="rotten_flesh");#q60=%#q60%-%#q40%;SET(flesh_remaining);ENDIF;
+NEXT;#q63=(%#q37%-3)*54 *64;FOR(#q39,0,53);GETSLOTITEM(%#q39%,&q3,#q40);
+IF(%&q3%="rotten_flesh");#q63=%#q63%+%#q40%;ENDIF;NEXT;UNSET(chest_full);
+IF(%flesh_remaining%);SET(chest_full);FOR(#q39,0,53);
+GETSLOTITEM(%#q39%,&q3);IF(%&q3%="air");UNSET(chest_full);BREAK;ENDIF;NEXT;
+IF(%chest_full%);IF(%#q37%<%#q22%);INC(#q37);ELSE;
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to all flesh chests full");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to all flesh chests full");
+DISCONNECT;ENDIF;ENDIF;ENDIF;IF(%GUI% != "NONE");GUI;DO(20);WAIT(1t);
+UNTIL(%GUI%="NONE");ENDIF;WHILE(%chest_full%);ENDIF;IF(%#q61%>0);
+LOOK(%#q19[%#q24%]%,%#q20[%#q24%]%);&q4="";WAIT(1t);
+&q5="stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper";
+&q5[]=SPLIT(" ",%&q5%);UNSET(cml_valid);FOREACH(&q5,&q6);
+IF(%HITID%=%&q6%);SET(cml_valid);BREAK;ENDIF;NEXT;IF(%cml_valid%);KEY(use);
+DO(100);WAIT(1t);UNTIL(%GUI% != "NONE");IF(%GUI%="NONE");
+&q4="%DATETIME% CML_open couldn't open %HITID%";ENDIF;ELSE;
+&q4="%DATETIME% CML_open called on block %HITID%";ENDIF;IF(%&q4% != "");
+LOG(%&q4%);ENDIF;&q7=%&q1%;#q64=10;&q10[]=SPLIT(" ",%&q7%);
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ENDIF;#q65=0;FOR(#q50,%#q54%,%#q55%);
+GETSLOTITEM(%#q50%,&q9,#q58);UNSET(cml_is_item);FOREACH(&q10,&q8);
+IF(%&q9%=%&q8%);SET(cml_is_item);BREAK;ENDIF;NEXT;IF(%cml_is_item%);WAIT(1t);
+SLOTCLICK(%#q50%,L,1);WAIT(%#q64%t);#q65=%#q65%+%#q58%;ENDIF;NEXT;
+#q61=%#q65%;&q7=%&q1%;&q7[]=SPLIT(" ",%&q7%);#q50=0;FOREACH(&q7,&q8);
+#q51[%#q50%]=0;INC(#q50);NEXT;
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ELSEIF(%GUI%="NONE");#q52=-1;#q53=-1;#q54=9;#q55=44;ENDIF;
+UNSET(no_gui);IF(%GUI%="NONE");SET(no_gui);GUI(inventory);ENDIF;#q56=0;
+#q57=0;FOR(#q50,%#q54%,%#q55%);GETSLOTITEM(%#q50%,&q9,#q58,#q59);#q56=0;
+FOREACH(&q7,&q8);IF(%&q9%=%&q8%);#q51[%#q56%]=%#q51[%#q56%]%+%#q58%;
+#q57=%#q57%+%#q58%;BREAK;ENDIF;INC(#q56);NEXT;NEXT;IF(%no_gui%);GUI;ENDIF;
+#q61=%&q1%-%#q65%;IF(%#q65%>0);&q7="air";&q7[]=SPLIT(" ",%&q7%);#q50=0;
+FOREACH(&q7,&q8);#q51[%#q50%]=0;INC(#q50);NEXT;
+IF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=63));#q52=0;#q53=26;#q54=27;
+#q55=62;ELSEIF((%GUI%="GUICHEST")&&(%CONTAINERSLOTS%=90));#q52=0;#q53=53;
+#q54=54;#q55=89;ELSEIF(%GUI%="NONE");#q52=-1;#q53=-1;#q54=9;#q55=44;ENDIF;
+UNSET(no_gui);IF(%GUI%="NONE");SET(no_gui);GUI(inventory);ENDIF;#q56=0;
+#q57=0;FOR(#q50,%#q54%,%#q55%);GETSLOTITEM(%#q50%,&q9,#q58,#q59);#q56=0;
+FOREACH(&q7,&q8);IF(%&q9%=%&q8%);#q51[%#q56%]=%#q51[%#q56%]%+%#q58%;
+#q57=%#q57%+%#q58%;BREAK;ENDIF;INC(#q56);NEXT;NEXT;IF(%no_gui%);GUI;ENDIF;
+IF(%#q65%>0);
+LOG("&a[zomb]&7 %DATETIME% Disconnected due to iron/gold chest full");
+LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to iron/gold full");
+DISCONNECT;ENDIF;ENDIF;IF(%GUI% != "NONE");GUI;DO(20);WAIT(1t);
+UNTIL(%GUI%="NONE");ENDIF;ENDIF;IF(%#q62%>0);FOR(#q39,1,9);SLOT(%#q39%);
+IF(%ITEM% != "diamond_sword");BREAK;ENDIF;NEXT;
+LOOK(%#q19[%#q29%]%,%#q20[%#q29%]%);WAIT(1t);&q7=%&q2%;#q66=5;#q67=3;
+&q7[]=SPLIT(" ",%&q7%);#q68=0;DO;FOREACH(&q7,&q8);PICK(%&q8%);NEXT;
+WAIT(%#q66%t);UNSET(cml_throw_item);FOREACH(&q7,&q8);IF(%ITEM%=%&q8%);
+SET(cml_throw_item);BREAK;ENDIF;NEXT;IF(%cml_throw_item%);#q68=0;KEY(drop);
+WAIT(1t);ELSE;INC(#q68);ENDIF;#q9=360;#q10=450;#q11=180;#q12=270;
+IF(%DIRECTION%="N");LOOK(%#q9%,+0);ELSEIF(%DIRECTION%="E");
+LOOK(%#q10%,+0);ELSEIF(%DIRECTION%="S");LOOK(%#q11%,+0);
+ELSEIF(%DIRECTION%="W");LOOK(%#q12%,+0);ENDIF;UNTIL(%#q68%>=%#q67%);ENDIF;
+LOGTO(zombieSlayer_datastream.txt,"%DATE% %TIME% %#q49% %#q60% %#q61% %#q63%");
+#q35=0;ELSE;IF(%HIT%="ENTITY");KEY(attack);ENDIF;ENDIF;IF(#q352>=8);
+LOGTO(zombieSlayer_timeout.txt,);#q352=0;ENDIF;INC(#q35);INC(#q352);
+IF(%GUI% != "NONE");PRESS(ESCAPE);;WAIT(1t);ENDIF;IF(%HUNGER%<=18);
+PICK("rotten_flesh");IF(%ITEM%="rotten_flesh");LOOK(+0,90);WAIT(5t);DO;
+KEY(use);WAIT(1t);UNTIL((%ITEM% != "rotten_flesh")||(%HUNGER%=20));ENDIF;
+ENDIF;IF(%HUNGER%<=6);UNSET(found_food);
+&q11="apple melon potato carrot cooked_chicken cooked_mutton cooked_rabbit cooked_fished cooked_porkchop cooked_beef bread baked_potato";
+&q11[]=SPLIT(" ",%&q11%);FOREACH(&q11,&q12);PICK(%&q12%);
+IF(%ITEM%=%&q12%);SET(found_food);ENDIF;NEXT;IF(%found_food%);&q13=%ITEM%;
+KEYUP(forward);KEYUP(left);KEYUP(right);KEYUP(back);KEYUP(jump);WAIT(5t);DO;
+KEY(use);WAIT(1t);UNTIL((%HUNGER%=20)||(%ITEM%!=%&q13%));ENDIF;ENDIF;
+WAIT(10t);LOOP;ENDUNSAFE;

@@ -11,7 +11,6 @@ FOREACH(&cml_items,&cml_item)
 	INC(#cml_i)
 NEXT
 
-// Determine loop range based on current GUI
 IF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 63))
 	#chest_begin = 0
 	#chest_end = 26
@@ -22,23 +21,12 @@ ELSEIF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 90))
 	#chest_end = 53
 	#inv_begin = 54
 	#inv_end = 89
-ELSEIF(%GUI% == "NONE")
-	#chest_begin = -1
-	#chest_end = -1
-	#inv_begin = 9
-	#inv_end = 44
 ENDIF
 
-UNSET(no_gui)
-IF(%GUI% == "NONE")
-	SET(no_gui)
-	GUI(inventory)
-ENDIF
-
-// Loop through inventory.
+// Loop through chest.
 #cml_j = 0
 #total = 0
-FOR(#cml_i,%#inv_begin%,%#inv_end%)
+FOR(#cml_i,%#chest_begin%,%#chest_end%)
 	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size,#cml_dura)
 
 	// If id matches with item, add amount to sum for that entry
@@ -53,7 +41,3 @@ FOR(#cml_i,%#inv_begin%,%#inv_end%)
 		INC(#cml_j)
 	NEXT
 NEXT
-
-IF(%no_gui%)
-	GUI
-ENDIF

@@ -34,86 +34,78 @@ GUI
 // If the hotbar is not clean, open up the swords chest and try to fix it.  If there's at least one
 // sword we can use, use it for now.  If there are absolutely no swords left, disconnect
 IF(!%valid%)
-	LOOK(%#block_yaw[12]%,%#block_pitch[12]%)
-	WAIT(1t)
+	LOOK(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%)
 
-	DO(%#chest_wait_time%)
-		KEY(use)
-		WAIT(1t)
-	UNTIL(%GUI% == "GUICHEST")
+	$$<CML_open.txt>
 
-	IF(%GUI% != "GUICHEST")
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to clean sword chest not opening")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to clean sword chest not opening")
-		DISCONNECT
+	IF(%&warn% == "")
+		// Move all clean swords not in hotbar to clean swords chest
+		FOR(#i,27,53)
+			GETSLOTITEM(%#i%,&id,#size,#dura)
+			IF(%&id% == "diamond_sword")
+				#dura = 1562 - %#dura% + 1
+				IF(%#dura% >= %#minimum_durability%)
+					SLOTCLICK(%#i%,L,1)
+					WAIT(%#item_movement_time%t)
+				ENDIF
+			ENDIF
+		NEXT
+
+		// Count how many clean swords we have in hotbar 1-8 currently
+		#num_swords_hotbar = 0
+		FOR(#i,54,61)
+			GETSLOTITEM(%#i%,&id,#size,#dura)
+			IF(%&id% == "diamond_sword")
+				#dura = 1562 - %#dura% + 1
+				IF(%#dura% >= %#minimum_durability%)
+					INC(#num_swords_hotbar)
+				ENDIF
+			ENDIF
+		NEXT
+
+		// Loop through clean swords chest and slotclick clean swords until hotbar is full, or
+		// we run out of swords in the chest
+		FOR(#i,0,26)
+			GETSLOTITEM(%#i%,&id,#size,#dura)
+			IF(%&id% == "diamond_sword")
+				#dura = 1562 - %#dura% + 1
+				IF(%#dura% >= %#minimum_durability%)
+					SLOTCLICK(%#i%,L,1)
+					INC(#num_swords_hotbar)
+					WAIT(%#item_movement_time%t)
+				ENDIF
+			ENDIF
+
+			IF(%#num_swords_hotbar% >= 8)
+				BREAK
+			ENDIF
+		NEXT
+
+		// At this point our hotbar should be filled with swords, or at least have as many swords
+		// as the chest could provide.  Let's count how much durability these swords have in total
+		#clean_chest_swords_durability = 0
+		FOR(#i,0,26)
+			GETSLOTITEM(%#i%,&id,#size,#dura)
+			IF(%&id% == "diamond_sword")
+				#dura = 1562 - %#dura% + 1
+
+				// Also factor in the durability margin we know we aren't going to use
+				#clean_chest_swords_durability = %#clean_chest_swords_durability% + %#dura% - %#minimum_durability%
+			ENDIF
+		NEXT
+
+		// And count how many are now in the hotbar - if it's zero, we know we truly ran out
+		#num_swords_hotbar = 0
+		FOR(#i,54,61)
+			GETSLOTITEM(%#i%,&id,#size,#dura)
+			IF(%&id% == "diamond_sword")
+				#dura = 1562 - %#dura% + 1
+				IF(%#dura% >= %#minimum_durability%)
+					INC(#num_swords_hotbar)
+				ENDIF
+			ENDIF
+		NEXT
 	ENDIF
-
-	// Move all clean swords not in hotbar to clean swords chest
-	FOR(#i,27,53)
-		GETSLOTITEM(%#i%,&id,#size,#dura)
-		IF(%&id% == "diamond_sword")
-			#dura = 1562 - %#dura% + 1
-			IF(%#dura% >= %#minimum_durability%)
-				SLOTCLICK(%#i%,L,1)
-				WAIT(%#item_movement_time%t)
-			ENDIF
-		ENDIF
-	NEXT
-
-	// Count how many clean swords we have in hotbar 1-8 currently
-	#num_swords_hotbar = 0
-	FOR(#i,54,61)
-		GETSLOTITEM(%#i%,&id,#size,#dura)
-		IF(%&id% == "diamond_sword")
-			#dura = 1562 - %#dura% + 1
-			IF(%#dura% >= %#minimum_durability%)
-				INC(#num_swords_hotbar)
-			ENDIF
-		ENDIF
-	NEXT
-
-	// Loop through clean swords chest and slotclick clean swords until hotbar is full, or
-	// we run out of swords in the chest
-	FOR(#i,0,26)
-		GETSLOTITEM(%#i%,&id,#size,#dura)
-		IF(%&id% == "diamond_sword")
-			#dura = 1562 - %#dura% + 1
-			IF(%#dura% >= %#minimum_durability%)
-				SLOTCLICK(%#i%,L,1)
-				INC(#num_swords_hotbar)
-				WAIT(%#item_movement_time%t)
-			ENDIF
-		ENDIF
-
-		IF(%#num_swords_hotbar% >= 8)
-			BREAK
-		ENDIF
-	NEXT
-
-	// At this point our hotbar should be filled with swords, or at least have as many swords
-	// as the chest could provide.  Let's count how much durability these swords have in total
-	#clean_chest_swords_durability = 0
-	FOR(#i,0,26)
-		GETSLOTITEM(%#i%,&id,#size,#dura)
-		IF(%&id% == "diamond_sword")
-			#dura = 1562 - %#dura% + 1
-
-			// Also factor in the durability margin we know we aren't going to use
-			#clean_chest_swords_durability = %#clean_chest_swords_durability% + %#dura% - %#minimum_durability%
-		ENDIF
-	NEXT
-
-	// And count how many are now in the hotbar - if it's zero, we know we truly ran out
-	#num_swords_hotbar = 0
-	FOR(#i,54,61)
-		GETSLOTITEM(%#i%,&id,#size,#dura)
-		IF(%&id% == "diamond_sword")
-			#dura = 1562 - %#dura% + 1
-			IF(%#dura% >= %#minimum_durability%)
-				INC(#num_swords_hotbar)
-			ENDIF
-		ENDIF
-	NEXT
 
 	// Attempt to close chest
 	DO(%#chest_close_time%)
@@ -121,11 +113,7 @@ IF(!%valid%)
 		WAIT(1t)
 	UNTIL(%GUI% = "NONE")
 
-	IF(%GUI% != "NONE")
-		LOG("&a[zomb]&7 %DATETIME% Disconnected due to broken sword chest not closing")
-		LOGTO(zombie_slayer.txt,"%DATETIME% Disconnected due to broken sword chest not closing")
-		DISCONNECT
-	ENDIF
+	$$<CML_close.txt>
 
 	// After closing chest, if we ran out of swords entirely, disconnect
 	IF(%#num_swords_hotbar% == 0)

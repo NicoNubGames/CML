@@ -7,7 +7,7 @@
 WAIT(1t)
 
 // We include stone in the list of valid blocks because of obfuscator
-&cml_valid_blocks = "stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest"
+&cml_valid_blocks = "stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper"
 &cml_valid_blocks[] = SPLIT(" ",%&cml_valid_blocks%)
 
 UNSET(cml_valid)

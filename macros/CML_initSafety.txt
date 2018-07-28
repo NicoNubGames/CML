@@ -1,0 +1,5 @@
+UNSET(@snitch_notify)
+
+#cml_original_x = %XPOS%
+#cml_original_y = %YPOS%
+#cml_original_z = %ZPOS%

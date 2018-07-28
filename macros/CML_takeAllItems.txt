@@ -1,0 +1,31 @@
+// Loop through through chest and take all items
+
+// Time to wait between each item movement action
+#cml_item_movement_time = 10
+
+IF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 63))
+	#chest_begin = 0
+	#chest_end = 26
+	#inv_begin = 27
+	#inv_end = 62
+ELSEIF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 90))
+	#chest_begin = 0
+	#chest_end = 53
+	#inv_begin = 54
+	#inv_end = 89
+ELSEIF(%GUI% == "GUIHOPPER")
+	#chest_begin = 0
+	#chest_end = 4
+	#inv_begin = 5
+	#inv_end = 40
+ENDIF
+
+FOR(#cml_i,%#chest_begin%,%#chest_end%)
+	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size)
+
+	IF(%&cml_id% != "air")
+		WAIT(1t)
+		SLOTCLICK(%#cml_i%,L,1)
+		WAIT(%#cml_item_movement_time%t)
+	ENDIF
+NEXT

@@ -1,0 +1,33 @@
+// Given &items, throw all of them away at the current yaw/pitch position, using fast SLOTCLICK method
+
+// Time to wait between each item movement action
+#cml_item_movement_time = 10
+
+// Split given string into array
+&cml_items[] = SPLIT(" ",%&items%)
+
+WAIT(1t)
+
+// Find first slot that matches items (Do it twice to fix strange bug)
+FOR(#cml_j,1,2)
+    FOR(#cml_i,9,44)
+        GUI(inventory)
+        GETSLOTITEM(%#cml_i%,&cml_id)
+
+        // If id matches with item, add amount to sum for that entry
+        FOREACH(&cml_items,&cml_item)
+            IF(%&cml_id% == %&cml_item%)
+                SLOTCLICK(%#cml_i%)
+                WAIT(%#cml_item_movement_time%t)
+                PRESS(ESCAPE)
+                BREAK
+            ENDIF
+        NEXT
+    NEXT
+NEXT
+
+WAIT(1t)
+
+IF(%GUI% == "GUIINGAMEMENU")
+    PRESS(ESCAPE)
+ENDIF

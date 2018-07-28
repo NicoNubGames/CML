@@ -15,7 +15,7 @@ GUI
 
 // Next, if there were broken swords, place them in the broken swords chest.
 IF(%#j% > 0)
-	LOOK(%#block_yaw[13]%,%#block_pitch[13]%)
+	LOOK(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%)
 	WAIT(1t)
 
 	DO(%#chest_wait_time%)

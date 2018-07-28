@@ -1,0 +1,34 @@
+// Position check
+IF((%XPOS% != %#cml_original_x%) || (%YPOS% != %#cml_original_y%) || (%ZPOS% != %#cml_original_z%))
+	LOG("&a[%&token%]&7 %DATETIME% Disconnected due to position change")
+	LOGTO(%&event_file%,"Disconnected due to position change")
+	DISCONNECT
+ENDIF
+
+// Key grave check
+IF(%KEY_GRAVE%)
+	LOG("&a[%&token%]&7 Manually stopping due to grave key press")
+	LOGTO(%&event_file%,)
+	STOP
+ENDIF
+
+// Check if we're starving, and disconnect if so
+IF(%HUNGER% <= 1)
+	LOG("&a[%&token%]&7 %DATETIME% Disconnected due to reaching critical hunger level")
+	LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to reaching critical hunger level")
+	DISCONNECT
+ENDIF
+
+// Check for health disconnect condition
+IF(%HEALTH% < %#minimum_health_limit%)
+	LOG("&a[%&token%]&7 %DATETIME% Disconnected due to taking damage!!!")
+	LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to taking damage!!! (%HEALTH%)")
+	DISCONNECT
+ENDIF
+
+// If a snitch event happens too close to us, disconnect
+IF(%@snitch_notify%)
+	LOG("&a[%&token%]&7 %DATETIME% Disconnected due to snitch event too close")
+	LOGTO(zombieSlayer_eventlog.txt,"%DATETIME% Disconnected due to the following snitch event: %@&snitch_message%")
+	DISCONNECT
+ENDIF

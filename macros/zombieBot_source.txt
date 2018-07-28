@@ -1,0 +1,327 @@
+// A zombie bot to surpass Metal Gear
+
+//.................................................
+//.......QQQQQQQQQQ................JJJJJ....IIIII..
+//.....QQQQQQQQQQQQQ...............JJJJJ....IIIII..
+//....QQQQQQQQQQQQQQQQ.............JJJJJ....IIIII..
+//...QQQQQQQQQQQQQQQQQ.............JJJJJ....IIIII..
+//..QQQQQQQQQ..QQQQQQQQ............JJJJJ....IIIII..
+//..QQQQQQ.......QQQQQQ............JJJJJ....IIIII..
+//.QQQQQQ.........QQQQQQ...........JJJJJ....IIIII..
+//.QQQQQQ.........QQQQQQ...........JJJJJ....IIIII..
+//.QQQQQQ..........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQ...........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQ...........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQ...........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQ...........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQQ..........QQQQQ...........JJJJJ....IIIII..
+//.QQQQQQ....QQQ..QQQQQQ.JJJJJ.....JJJJJ....IIIII..
+//.QQQQQQQ...QQQQQQQQQQQ.JJJJJJ....JJJJJ....IIIII..
+//..QQQQQQ..QQQQQQQQQQQQ..JJJJJ....JJJJJ....IIIII..
+//..QQQQQQQQQQQQQQQQQQQ...JJJJJJ.JJJJJJJ....IIIII..
+//...QQQQQQQQQQQQQQQQQQ...JJJJJJJJJJJJJ.....IIIII..
+//....QQQQQQQQQQQQQQQQQ....JJJJJJJJJJJJ.....IIIII..
+//.....QQQQQQQQQQQQQQQQQQ..JJJJJJJJJJJ......IIIII..
+//.......QQQQQQQQQQQQQQQQ...JJJJJJJJJ.......IIIII..
+//..................QQQQQ..........................
+//...................QQQ...........................
+//.................................................
+
+UNSAFE(0)
+
+//.................................................
+//.....Options.....................................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// Ticks to wait between hits.  "1" means hit every other tick
+#hit_frequency = 7
+
+// Ticks to wait between resetting/surveying all chests
+#reset_frequency = 600
+
+// Yaw delta to sweep to when attacking zombies
+#sweep_frequency = 18
+
+// Small identifier used in notifications to identify bot
+&token = "zomb"
+
+// File to log "events" to - unexpected or suboptimal conditions
+&event_file = "zombieBot_events.txt"
+
+// File to log performance data to for dashboard display
+&data_file = "zombieBot_data.txt"
+
+// Minimum durability to tolerate for a given looting sword
+#min_durability = 50
+#max_durability = 1562
+
+// Number of flesh to disconnect once we reach.
+#max_flesh = 27993
+
+// Minimum health level we will tolerate before logging out
+#minimum_health_limit = 15
+
+// If a snitch event happens within this distance, disconnect
+@#snitch_alert_radius = 10
+
+// If we eat longer than these ticks, assume an eating glitch occured
+#max_eating_time = 200
+
+// How many ticks a look command takes
+#look_delay = 5
+
+
+//.................................................
+//.....Initialization..............................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+WAIT(5t)
+
+$$<CML_snapYaw.txt>
+
+$$<zombieBot_blockPositions.txt>
+#first_chest_index = 0
+#last_chest_index = 8
+#hopper_index = 9
+#iron_gold_index = 10
+#fuel_index = 11
+#repair_index = 12
+#good_swords_index = 13
+#bad_swords_index = 14
+#despawn_index = 15
+#zombie_index = 16
+
+// Counters
+#flesh_chest_counter = %#first_chest_index%
+
+// Timers
+#hit_timer = 0
+#reset_timer = 0
+#sweep_timer = 0
+
+// Initialize safety checking
+$$<CML_initSafety.txt>
+
+
+//.................................................
+//.....Main Loop...................................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+DO
+
+
+//.................................................
+//.....Safety Check................................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	$$<CML_checkSafety.txt>
+
+
+//.................................................
+//.....Chest Reset Procedure.......................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	// If it's time to reset the chests, do so
+	IF(%#reset_timer% == 0)
+		// First, get all hopper loot
+		LOOKS(%#block_yaw[%#hopper_index%]%,%#block_pitch[%#hopper_index%]%,0.1)
+		$$<CML_open.txt>
+			$$<CML_takeAllItems.txt>
+		$$<CML_close.txt>
+
+		// Open all flesh chests, placing flesh and calculating total amount
+		#num_flesh = 0
+		FOR(#i,%#first_chest_index%,%#last_chest_index%)
+			LOOKS(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%,0.1)
+			$$<CML_open.txt>
+				&items = "rotten_flesh"
+				$$<CML_placeItems.txt>
+				$$<CML_countChestItems.txt>
+				#num_flesh = %#num_flesh% + %#total%
+			$$<CML_close.txt>
+		NEXT
+
+		// Place irongold items, and count how many we placed
+		LOOKS(%#block_yaw[%#iron_gold_index%]%,%#block_pitch[%#iron_gold_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
+			$$<CML_placeItems.txt>
+			#num_irongold = %#count%
+		$$<CML_close.txt>
+
+		// Count how much fuel we have
+		LOOKS(%#block_yaw[%#fuel_index%]%,%#block_pitch[%#fuel_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "charcoal coal"
+			$$<CML_countChestItems.txt>
+			#num_fuel = %#total%
+		$$<CML_close.txt>
+
+		// Count how many XP bottles (or equivalent) we have, as well as number of plain swords
+		LOOKS(%#block_yaw[%#repair_index%]%,%#block_pitch[%#repair_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "experience_bottle emerald emerald_block"
+			$$<CML_placeItems.txt>
+			$$<CML_countChestItems.txt>
+			#num_xpbottles = %#counts[0]% + (%#counts[1]% * 9) + (%#counts[2]% * 81)
+
+			&items = "diamond_sword"
+			$$<CML_countChestItems.txt>
+			#num_plainswords = %#total%
+		$$<CML_close.txt>
+
+		// Count how many good swords we have, and count total durability
+		LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "diamond_sword"
+			$$<CML_countChestItems.txt>
+			#num_goodswords = %#total%
+
+			$$<CML_countChestItemsDurability.txt>
+			#num_durability = %#total%
+		$$<CML_close.txt>
+
+		// Count how many bad swords exist that still need repair
+		LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "diamond_sword"
+			$$<CML_countChestItems.txt>
+			#num_badswords = %#total%
+		$$<CML_close.txt>
+
+		// Throw all items that are useless, if we have any
+		&items = "chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken"
+		$$<CML_countInventoryItems.txt>
+		IF(%#total% > 0)
+			LOOKS(%#block_yaw[%#despawn_index%]%,%#block_pitch[%#despawn_index%]%,0.1)
+			$$<CML_throwItems.txt>
+		ENDIF
+
+		// Log data entry to table
+		LOGTO(%&data_file%,"%DATE% %TIME% %#num_flesh% %#num_irongold% %#num_fuel% %#num_xpbottles% %#num_plainswords% %#num_goodswords% %#num_durability% %#num_badswords%")
+
+		// Disconnect if flesh storage is over specified amount
+		IF(%#num_flesh% >= %#max_flesh%)
+			LOG("&a[%&token%]&7 %DATETIME% Disconnected due to flesh storage threshold exceeded")
+			LOGTO(%&event_file%,"Disconnected due to flesh storage threshold exceeded")
+			DISCONNECT
+		ENDIF
+	ENDIF
+
+
+//.................................................
+//.....Sword Consistency Checks....................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	// Check the status of our sword(s).  If durability is low or sword is missing, consult chest.
+	#valid_i = 0
+	sword_not_good = false
+	#count = 0
+	FOR(#i,1,9)
+		SLOT(%#i%)
+		IF(%ITEM% == "diamond_sword")
+			INC(#count)
+			IF(%DURABILITY% >= %#min_durability%)
+				#valid_i = %#i%
+			ELSE
+				sword_not_good = true
+			ENDIF
+		ENDIF
+	NEXT
+
+	// If there's more than one sword in hotbar, or none, or there's not one with good durability,
+	// consult chest.
+	IF(sword_not_good)
+		LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "diamond_sword"
+			$$<CML_placeItemsBelowDurability.txt>
+		$$<CML_close.txt>
+	ELSEIF((%#valid_i% == 0) || (%#count% != 1))
+		LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
+		$$<CML_open.txt>
+			&items = "diamond_sword"
+			$$<CML_placeItems.txt>
+			&amounts = "1"
+			$$<CML_takeItems.txt>
+			$$<CML_countInventoryItems.txt>
+			IF(%#total% == 0)
+				LOG("&a[%&token%]&7 %DATETIME% Disconnected due to out of good swords")
+				LOGTO(%&event_file%,"Disconnected due to out of good swords")
+				DISCONNECT
+			ENDIF
+		$$<CML_close.txt>
+	ELSE
+		SLOT(%#valid_i%)
+	ENDIF
+
+
+//.................................................
+//.....Attack Logic................................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	IF((%ITEM% == "diamond_sword") && (%DURABILITY% >= %#min_durability%))
+		IF(%#sweep_timer% == 0)
+			LOOKS(%#block_yaw[%#zombie_index%]%,%#block_pitch[%#zombie_index%]%,0.1)
+		ELSE
+			LOOK(%#block_yaw[%#zombie_index%]%,%#block_pitch[%#zombie_index%]%)
+		ENDIF
+
+		// Add dynamic sweep modification to zombie yaw
+		LOOK(+%#sweep_timer%,+0)
+
+		IF(%#hit_timer% == 0)
+			KEY(attack)
+		ENDIF
+	ENDIF
+
+
+//.................................................
+//.....Eating......................................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	// Eat flesh if we're hungry
+	IF(%HUNGER% <= 18)
+		PICK("rotten_flesh")
+
+		IF(%ITEM% == "rotten_flesh")
+			// Sneak so we don't open a chest instead of eat
+			KEYDOWN(sneak)
+			WAIT(5t)
+			DO(%#max_eating_time%)
+				KEY(use)
+				WAIT(1t)
+			UNTIL((%ITEM% != "rotten_flesh") || (%HUNGER% == 20))
+			KEYUP(sneak)
+		ENDIF
+	ENDIF
+
+	// If we have normal food, go ahead and eat it if the flesh didn't sate us
+	$$<CML_eatFood.txt>
+
+//.................................................
+//.....Timer and Loop Resetting....................
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	IF(%#hit_timer% >= %#hit_frequency%)
+		#hit_timer = 0
+	ELSE
+		INC(#hit_timer)
+	ENDIF
+
+	IF(%#reset_timer% >= %#reset_frequency%)
+		#reset_timer = 0
+	ELSE
+		INC(#reset_timer)
+	ENDIF
+
+	IF(%#sweep_timer% >= %#sweep_frequency%)
+		#sweep_timer = 0
+	ELSE
+		INC(#sweep_timer)
+	ENDIF
+
+	WAIT(1t)
+LOOP
+
+ENDUNSAFE
