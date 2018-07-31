@@ -3,8 +3,8 @@
 
 &warn = ""
 
-// Wait 1t so any look commands are processed
-WAIT(1t)
+// Wait 3t so any look commands are processed
+WAIT(3t)
 
 // We include stone in the list of valid blocks because of obfuscator
 &cml_valid_blocks = "stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper"
@@ -23,7 +23,13 @@ IF(%cml_valid%)
     KEY(use)
 
     // Wait until a GUI appears, for a maximum of 5 seconds
+    #cml_t = 0
     DO(100)
+        IF(%#cml_t% >= 10)
+            #cml_t = 0
+            KEY(use)
+        ENDIF
+        INC(#cml_t)
         WAIT(1t)
     UNTIL(%GUI% != "NONE")
 

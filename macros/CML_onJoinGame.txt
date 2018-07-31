@@ -12,15 +12,15 @@ UNSET(@automatic)
 #pitch = %PITCH%
 
 DO(200)
-	
+    
 UNTIL((%#yaw% != %YAW%) || (%#pitch% != %PITCH%))
 
 IF((%#yaw% != %YAW%) || (%#pitch% != %PITCH%))
-	LOG("&a[join]&7 Manual control assumed")
+    LOG("&a[join]&7 Manual control assumed")
 ELSE
-	SET(@automatic)
-	LOG("&a[join]&7 Automatic control assumed")
+    SET(@automatic)
+    LOG("&a[join]&7 Automatic control assumed")
 
-	// Add or modify lines below to control which script should run
-	EXEC("zombieSlayer.txt");
+    // Add or modify lines below to control which script should run
+    EXEC("zombieBot.txt")
 ENDIF

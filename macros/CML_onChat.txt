@@ -11,6 +11,11 @@
 
 // We use the globally defined variable @#snitch_alert_radius to decide to set @snitch_notify or not
 
+// List of white-listed alts
+&whitelist = "qji qji_1 qji_2 qji_3 qji_4 qji_5 Stonato"
+
+&whitelist[] = SPLIT(" ",%&whitelist%)
+
 IFMATCHES(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\])
 
 	// If it is a snitch notification, deconstruct it into it's parts:
@@ -22,33 +27,43 @@ IFMATCHES(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\])
 	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],#snitch_y,5)
 	MATCH(%CHATCLEAN%,^ \* (\w*) (.*) at (\S*) \[world (\S*) (\S*) (\S*)\],#snitch_z,6)
 
-	// Remove spaces from action
-	REPLACE(&action, ,)
+	safe = false
+	FOREACH(&whitelist,&safe_name)
+	    IF(%&username% == %&safe_name%)
+	    	safe = true
+	        BREAK
+	    ENDIF
+	NEXT
 
-	// Construct snitch message so that it may be space-delimited parsed for data
-	@&snitch_message = %DATE% %TIME% %&username% %&action% %&snitch% %#snitch_x% %#snitch_y% %#snitch_z%
+	IF(!%safe%)
+		// Remove spaces from action
+		REPLACE(&action, ,)
 
-	// Log all snitches to snitchlog.txt.  config.json will decide if/where it gets send to
-	LOGTO(snitchlog.txt,%@&snitch_message%)
+		// Construct snitch message so that it may be space-delimited parsed for data
+		@&snitch_message = %DATE% %TIME% %&username% %&action% %&snitch% %#snitch_x% %#snitch_y% %#snitch_z%
 
-	#delta_x = %XPOS% - %#snitch_x%
-	#delta_y = %YPOS% - %#snitch_y%
-	#delta_z = %ZPOS% - %#snitch_z%
+		// Log all snitches to snitchlog.txt.  config.json will decide if/where it gets send to
+		LOGTO(snitchlog.txt,%@&snitch_message%)
 
-	IF(%#delta_x% < 0)
-		#delta_x = -%#delta_x%
-	ENDIF
+		#delta_x = %XPOS% - %#snitch_x%
+		#delta_y = %YPOS% - %#snitch_y%
+		#delta_z = %ZPOS% - %#snitch_z%
 
-	IF(%#delta_y% < 0)
-		#delta_y = -%#delta_y%
-	ENDIF
+		IF(%#delta_x% < 0)
+			#delta_x = -%#delta_x%
+		ENDIF
 
-	IF(%#delta_z% < 0)
-		#delta_z = -%#delta_z%
-	ENDIF
+		IF(%#delta_y% < 0)
+			#delta_y = -%#delta_y%
+		ENDIF
 
-	IF((%#delta_x% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%))
-		SET(@snitch_notify)
+		IF(%#delta_z% < 0)
+			#delta_z = -%#delta_z%
+		ENDIF
+
+		IF((%#delta_x% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%) && (%#delta_y% < %@#snitch_alert_radius%))
+			SET(@snitch_notify)
+		ENDIF
 	ENDIF
 
 ENDIF

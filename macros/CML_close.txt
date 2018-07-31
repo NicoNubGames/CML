@@ -1,9 +1,17 @@
 // Utility to close GUI-enabled blocks in a robust way
 
-IF(%GUI% != "NONE")
-	GUI
+GUI
 
-	DO(20)
-		WAIT(1t)
-	UNTIL(%GUI% == "NONE")
+#cml_t = 0
+DO(100)
+    IF(%#cml_t% >= 10)
+        #cml_t = 0
+        GUI
+    ENDIF
+    INC(#cml_t)
+    WAIT(1t)
+UNTIL(%GUI% == "NONE")
+
+IF(%GUI% != "NONE")
+    &warn = "%DATETIME% CML_close couldn't close, currently %GUI%"
 ENDIF

@@ -23,7 +23,7 @@ ENDIF
 #count = 0
 FOR(#cml_i,%#inv_begin%,%#inv_end%)
 	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size,#cml_dura)
-	#cml_dura = %#max_durability% - %#cml_dura% - 1
+	#cml_dura = %#max_durability% - %#cml_dura% + 1
 
 	UNSET(cml_is_item)
     FOREACH(&cml_items,&cml_item)

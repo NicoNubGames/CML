@@ -29,18 +29,25 @@
 
 UNSAFE(0)
 
+
 //.................................................
 //.....Options.....................................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Ticks to wait between hits.  "1" means hit every other tick
-#hit_frequency = 7
+#hit_frequency = 10
 
 // Ticks to wait between resetting/surveying all chests
-#reset_frequency = 600
+#reset_frequency = 6000
 
 // Yaw delta to sweep to when attacking zombies
 #sweep_frequency = 18
+
+// How often to write to timeout file for restarting automatically
+#timeout_frequency = 40
+
+// Modifier to apply to the hit-wait time to add pattern fuzz
+#random_frequency = 5
 
 // Small identifier used in notifications to identify bot
 &token = "zomb"
@@ -67,13 +74,26 @@ UNSAFE(0)
 // If we eat longer than these ticks, assume an eating glitch occured
 #max_eating_time = 200
 
-// How many ticks a look command takes
-#look_delay = 5
+// How many times maximum to attempt the chest recording process
+#max_chest_attempts = 3
+
+// Wait delay between chest interactions
+#chest_wait_delay = 10
+
+// Fist mode is when we run out of swords, but still want to attack and manage inventory
+enable_fist_mode = true
 
 
 //.................................................
 //.....Initialization..............................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#yaw_north = 360
+#yaw_east = 450
+#yaw_south = 180
+#yaw_west = 270
+
+LOOKS(%#yaw_east%,+0,.1)
 
 WAIT(5t)
 
@@ -98,10 +118,19 @@ $$<zombieBot_blockPositions.txt>
 #hit_timer = 0
 #reset_timer = 0
 #sweep_timer = 0
+#timeout_timer = 0
+#random_timer = 0
 
 // Initialize safety checking
 $$<CML_initSafety.txt>
 
+fist_mode = false
+
+// If automatic is set, log message that we restarted successfully
+IF(@automatic)
+		LOG("&a[%&token%]&7 %DATETIME% Automatic logon successful")
+		LOGTO(%&event_file%,"Automatic logon successful")
+ENDIF
 
 //.................................................
 //.....Main Loop...................................
@@ -111,10 +140,20 @@ DO
 
 
 //.................................................
-//.....Safety Check................................
+//.....Safety and Timeout..........................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	
 	$$<CML_checkSafety.txt>
+
+	IF(%#timeout_timer% == 0)
+		LOGTO(zombieBot_timeout.txt,)
+	ENDIF
+
+	// Fix GUI if necessary
+	IF(%GUI% != "NONE")
+		PRESS(ESCAPE);
+		WAIT(1t)
+	ENDIF
 
 
 //.................................................
@@ -123,71 +162,146 @@ DO
 
 	// If it's time to reset the chests, do so
 	IF(%#reset_timer% == 0)
-		// First, get all hopper loot
-		LOOKS(%#block_yaw[%#hopper_index%]%,%#block_pitch[%#hopper_index%]%,0.1)
-		$$<CML_open.txt>
-			$$<CML_takeAllItems.txt>
-		$$<CML_close.txt>
 
-		// Open all flesh chests, placing flesh and calculating total amount
-		#num_flesh = 0
-		FOR(#i,%#first_chest_index%,%#last_chest_index%)
-			LOOKS(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%,0.1)
+		DO(%#max_chest_attempts%)
+			error = false
+
+			// First, get all hopper loot
+			LOOKS(%#block_yaw[%#hopper_index%]%,%#block_pitch[%#hopper_index%]%,0.1)
 			$$<CML_open.txt>
-				&items = "rotten_flesh"
-				$$<CML_placeItems.txt>
-				$$<CML_countChestItems.txt>
-				#num_flesh = %#num_flesh% + %#total%
+				IF(%&warn% != "")
+					LOGTO(%&event_file%,%&warn%)
+					error = true
+				ELSE
+					$$<CML_takeAllItems.txt>
+				ENDIF
 			$$<CML_close.txt>
-		NEXT
+			WAIT(%#chest_wait_delay%t)
 
-		// Place irongold items, and count how many we placed
-		LOOKS(%#block_yaw[%#iron_gold_index%]%,%#block_pitch[%#iron_gold_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
-			$$<CML_placeItems.txt>
-			#num_irongold = %#count%
-		$$<CML_close.txt>
+			// Open all flesh chests, placing flesh and calculating total amount
+			#num_flesh = 0
+			FOR(#i,%#first_chest_index%,%#last_chest_index%)
+				IF(!error)
+					LOOKS(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%,0.1)
+					$$<CML_open.txt>
+						IF(%&warn% != "")
+							LOGTO(%&event_file%,%&warn%)
+							error = true
+						ELSE
+							&items = "rotten_flesh"
+							$$<CML_placeItems.txt>
+							$$<CML_countChestItems.txt>
+							#num_flesh = %#num_flesh% + %#total%
+						ENDIF
+					$$<CML_close.txt>
+					WAIT(%#chest_wait_delay%t)
+				ELSE
+					BREAK
+				ENDIF
+			NEXT
 
-		// Count how much fuel we have
-		LOOKS(%#block_yaw[%#fuel_index%]%,%#block_pitch[%#fuel_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "charcoal coal"
-			$$<CML_countChestItems.txt>
-			#num_fuel = %#total%
-		$$<CML_close.txt>
+			// Place irongold items, and count how many we placed
+			IF(!error)
+				LOOKS(%#block_yaw[%#iron_gold_index%]%,%#block_pitch[%#iron_gold_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "iron_helmet iron_chestplate iron_leggings iron_boots iron_shovel iron_sword iron_ingot golden_helmet golden_chestplate golden_leggings golden_boots"
+						$$<CML_placeItems.txt>
+						#num_irongold = %#count%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
 
-		// Count how many XP bottles (or equivalent) we have, as well as number of plain swords
-		LOOKS(%#block_yaw[%#repair_index%]%,%#block_pitch[%#repair_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "experience_bottle emerald emerald_block"
-			$$<CML_placeItems.txt>
-			$$<CML_countChestItems.txt>
-			#num_xpbottles = %#counts[0]% + (%#counts[1]% * 9) + (%#counts[2]% * 81)
+			IF(!error)
+				// Count how much fuel we have
+				LOOKS(%#block_yaw[%#fuel_index%]%,%#block_pitch[%#fuel_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "charcoal coal"
+						$$<CML_countChestItems.txt>
+						#num_fuel = %#total%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
 
-			&items = "diamond_sword"
-			$$<CML_countChestItems.txt>
-			#num_plainswords = %#total%
-		$$<CML_close.txt>
+			IF(!error)
+				// Count how many XP bottles (or equivalent) we have, as well as number of plain swords
+				LOOKS(%#block_yaw[%#repair_index%]%,%#block_pitch[%#repair_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "experience_bottle emerald emerald_block"
+						$$<CML_placeItems.txt>
+						$$<CML_countChestItems.txt>
+						#num_xpbottles = %#counts[0]% + (%#counts[1]% * 9) + (%#counts[2]% * 81)
 
-		// Count how many good swords we have, and count total durability
-		LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "diamond_sword"
-			$$<CML_countChestItems.txt>
-			#num_goodswords = %#total%
+						&items = "diamond_sword"
+						$$<CML_countChestItems.txt>
+						#num_plainswords = %#total%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
 
-			$$<CML_countChestItemsDurability.txt>
-			#num_durability = %#total%
-		$$<CML_close.txt>
+			// Choose diamond sword, so we can measure durability properly when necessary
+			PICK("diamond_sword")
 
-		// Count how many bad swords exist that still need repair
-		LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "diamond_sword"
-			$$<CML_countChestItems.txt>
-			#num_badswords = %#total%
-		$$<CML_close.txt>
+			IF(!error)
+				// Count how many good swords we have, and count total durability
+				LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "diamond_sword"
+						$$<CML_countChestItems.txt>
+						#num_goodswords = %#total%
+
+						$$<CML_countChestItemsDurability.txt>
+						#num_durability = %#total% + %DURABILITY%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
+
+			IF(!error)
+				// Count how many bad swords exist that still need repair
+				LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "diamond_sword"
+						$$<CML_countChestItems.txt>
+						#num_badswords = %#total%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
+
+			IF(!error)
+				BREAK
+			ENDIF
+		LOOP
+
+		IF(error)
+			LOG("&a[%&token%]&7 %DATETIME% Disconnected due to chests not consistently readable")
+			LOGTO(%&event_file%,"Disconnected due to chests not consistently readable")
+			DISCONNECT
+			STOP
+		ENDIF
 
 		// Throw all items that are useless, if we have any
 		&items = "chainmail_helmet chainmail_chestplate chainmail_leggings chainmail_boots leather_helmet leather_chestplate leather_leggings leather_boots potato feather carrot chicken"
@@ -200,11 +314,18 @@ DO
 		// Log data entry to table
 		LOGTO(%&data_file%,"%DATE% %TIME% %#num_flesh% %#num_irongold% %#num_fuel% %#num_xpbottles% %#num_plainswords% %#num_goodswords% %#num_durability% %#num_badswords%")
 
+		// If we're in fist mode, and we have a sword in the inventory or in the chest, exit fist mode
+
+		IF((#num_goodswords > 0) || (num_sword_inventory > 0))
+			fist_mode = false
+		ENDIF
+
 		// Disconnect if flesh storage is over specified amount
 		IF(%#num_flesh% >= %#max_flesh%)
 			LOG("&a[%&token%]&7 %DATETIME% Disconnected due to flesh storage threshold exceeded")
 			LOGTO(%&event_file%,"Disconnected due to flesh storage threshold exceeded")
 			DISCONNECT
+			STOP
 		ENDIF
 	ENDIF
 
@@ -213,46 +334,55 @@ DO
 //.....Sword Consistency Checks....................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	// Check the status of our sword(s).  If durability is low or sword is missing, consult chest.
-	#valid_i = 0
-	sword_not_good = false
-	#count = 0
-	FOR(#i,1,9)
-		SLOT(%#i%)
-		IF(%ITEM% == "diamond_sword")
-			INC(#count)
-			IF(%DURABILITY% >= %#min_durability%)
-				#valid_i = %#i%
-			ELSE
-				sword_not_good = true
+	IF(!fist_mode)
+		// Check the status of our sword(s).  If durability is low or sword is missing, consult chest.
+		#valid_i = 0
+		sword_not_good = false
+		#count = 0
+		FOR(#i,1,9)
+			SLOT(%#i%)
+			IF(%ITEM% == "diamond_sword")
+				INC(#count)
+				IF(%DURABILITY% >= %#min_durability%)
+					#valid_i = %#i%
+				ELSE
+					sword_not_good = true
+				ENDIF
 			ENDIF
-		ENDIF
-	NEXT
+		NEXT
 
-	// If there's more than one sword in hotbar, or none, or there's not one with good durability,
-	// consult chest.
-	IF(sword_not_good)
-		LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "diamond_sword"
-			$$<CML_placeItemsBelowDurability.txt>
-		$$<CML_close.txt>
-	ELSEIF((%#valid_i% == 0) || (%#count% != 1))
-		LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
-		$$<CML_open.txt>
-			&items = "diamond_sword"
-			$$<CML_placeItems.txt>
-			&amounts = "1"
-			$$<CML_takeItems.txt>
-			$$<CML_countInventoryItems.txt>
-			IF(%#total% == 0)
-				LOG("&a[%&token%]&7 %DATETIME% Disconnected due to out of good swords")
-				LOGTO(%&event_file%,"Disconnected due to out of good swords")
-				DISCONNECT
-			ENDIF
-		$$<CML_close.txt>
-	ELSE
-		SLOT(%#valid_i%)
+		// If there's more than one sword in hotbar, or none, or there's not one with good durability,
+		// consult chest.
+		IF(sword_not_good)
+			LOOKS(%#block_yaw[%#bad_swords_index%]%,%#block_pitch[%#bad_swords_index%]%,0.1)
+			$$<CML_open.txt>
+				&items = "diamond_sword"
+				$$<CML_placeItemsBelowDurability.txt>
+			$$<CML_close.txt>
+		ELSEIF((%#valid_i% == 0) || (%#count% != 1))
+			LOOKS(%#block_yaw[%#good_swords_index%]%,%#block_pitch[%#good_swords_index%]%,0.1)
+			$$<CML_open.txt>
+				&items = "diamond_sword"
+				$$<CML_placeItems.txt>
+				&amounts = "1"
+				$$<CML_takeItems.txt>
+				$$<CML_countInventoryItems.txt>
+				IF(!enable_fist_mode)
+					IF(%#total% == 0)
+						LOG("&a[%&token%]&7 %DATETIME% Disconnected due to out of good swords")
+						LOGTO(%&event_file%,"Disconnected due to out of good swords")
+						DISCONNECT
+						STOP
+					ENDIF
+				ELSE
+					fist_mode = true
+					LOG("&a[%&token%]&7 %DATETIME% Out of good swords, entering fist mode")
+					LOGTO(%&event_file%,"Out of good swords, entering fist mode")
+				ENDIF
+			$$<CML_close.txt>
+		ELSE
+			SLOT(%#valid_i%)
+		ENDIF
 	ENDIF
 
 
@@ -260,7 +390,7 @@ DO
 //.....Attack Logic................................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	
-	IF((%ITEM% == "diamond_sword") && (%DURABILITY% >= %#min_durability%))
+	IF(((%ITEM% == "diamond_sword") && (%DURABILITY% >= %#min_durability%)) || fist_mode)
 		IF(%#sweep_timer% == 0)
 			LOOKS(%#block_yaw[%#zombie_index%]%,%#block_pitch[%#zombie_index%]%,0.1)
 		ELSE
@@ -299,12 +429,13 @@ DO
 	// If we have normal food, go ahead and eat it if the flesh didn't sate us
 	$$<CML_eatFood.txt>
 
+
 //.................................................
 //.....Timer and Loop Resetting....................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	IF(%#hit_timer% >= %#hit_frequency%)
-		#hit_timer = 0
+		#hit_timer = -%#random_timer%
 	ELSE
 		INC(#hit_timer)
 	ENDIF
@@ -319,6 +450,18 @@ DO
 		#sweep_timer = 0
 	ELSE
 		INC(#sweep_timer)
+	ENDIF
+
+	IF(%#timeout_timer% >= %#timeout_frequency%)
+		#timeout_timer = 0
+	ELSE
+		INC(#timeout_timer)
+	ENDIF
+
+	IF(%#random_timer% >= %#random_frequency%)
+		#random_timer = 0
+	ELSE
+		INC(#random_timer)
 	ENDIF
 
 	WAIT(1t)
