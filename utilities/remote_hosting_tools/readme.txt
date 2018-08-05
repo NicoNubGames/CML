@@ -25,6 +25,15 @@ To run, do "connect_master", then on 0 run 1 - 5 (or less), then do "disconnect_
 
 
 
+NOTE:
+If you have one physical machine, you can also utilize this by connecting to different local
+accounts from your main account.  Then, you can simply minimize those remote sessions and
+continue using your machine as normal.
+
+The reason I don't do this is that using a remote dedicated machine (i.e. server) means
+that I don't need to keep my main working laptop always on and at home.
+
+
 
 ADDITIONAL:
 I include batch scripts that run a autohotkey script on different users, but you require RunInSession (which does just that)

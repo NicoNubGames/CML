@@ -1,4 +1,5 @@
-// Loop through inventory and put all specified &items, saving how many we store in #count
+// Loop through inventory and put all specified &items, saving how many we store in #count.
+// Place only items with full 64 stacks
 
 // Time to wait between each item movement action
 #cml_item_movement_time = 10
@@ -16,29 +17,26 @@ ELSEIF((%GUI% == "GUICHEST") && (%CONTAINERSLOTS% == 90))
 	#chest_end = 53
 	#inv_begin = 54
 	#inv_end = 89
-ELSEIF(%GUI% == "GUIHOPPER")
-	#chest_begin = 0
-	#chest_end = 4
-	#inv_begin = 5
-	#inv_end = 40
 ENDIF
 
 #count = 0
 FOR(#cml_i,%#inv_begin%,%#inv_end%)
 	GETSLOTITEM(%#cml_i%,&cml_id,#cml_size)
 
-	UNSET(cml_is_item)
-    FOREACH(&cml_items,&cml_item)
-        IF(%&cml_id% == %&cml_item%)
-            SET(cml_is_item)
-            BREAK
-        ENDIF
-    NEXT
+	IF(%#cml_size% == 64)
+		UNSET(cml_is_item)
+	    FOREACH(&cml_items,&cml_item)
+	        IF(%&cml_id% == %&cml_item%)
+	            SET(cml_is_item)
+	            BREAK
+	        ENDIF
+	    NEXT
 
-	IF(%cml_is_item%)
-		WAIT(1t)
-		SLOTCLICK(%#cml_i%,L,1)
-		WAIT(%#cml_item_movement_time%t)
-		#count = %#count% + %#cml_size%
+		IF(%cml_is_item%)
+			WAIT(1t)
+			SLOTCLICK(%#cml_i%,L,1)
+			WAIT(%#cml_item_movement_time%t)
+			#count = %#count% + %#cml_size%
+		ENDIF
 	ENDIF
 NEXT

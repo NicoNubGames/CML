@@ -3,8 +3,8 @@
 
 &warn = ""
 
-// Wait 3t so any look commands are processed
-WAIT(3t)
+// Wait 2t so any look commands are processed
+WAIT(2t)
 
 // We include stone in the list of valid blocks because of obfuscator
 &cml_valid_blocks = "stone anvil beacon brewing_stand cauldron chest ender_chest crafting_table enchanting_table furnace dispenser trapped_chest hopper"
@@ -39,3 +39,6 @@ IF(%cml_valid%)
 ELSE
     &warn = "%DATETIME% CML_open called on block %HITID%"
 ENDIF
+
+// Wait 2t so we get any data being waited on
+WAIT(2t)

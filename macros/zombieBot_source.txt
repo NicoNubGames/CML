@@ -35,19 +35,19 @@ UNSAFE(0)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Ticks to wait between hits.  "1" means hit every other tick
-#hit_frequency = 10
+#hit_frequency = 5
 
-// Ticks to wait between resetting/surveying all chests
-#reset_frequency = 6000
+// Ticks to wait between resetting/surveying all chests (2 mins)
+#reset_frequency = 2400
 
 // Yaw delta to sweep to when attacking zombies
-#sweep_frequency = 18
+#sweep_frequency = 15
 
 // How often to write to timeout file for restarting automatically
 #timeout_frequency = 40
 
 // Modifier to apply to the hit-wait time to add pattern fuzz
-#random_frequency = 5
+#random_frequency = 2
 
 // Small identifier used in notifications to identify bot
 &token = "zomb"
@@ -100,19 +100,19 @@ WAIT(5t)
 $$<CML_snapYaw.txt>
 
 $$<zombieBot_blockPositions.txt>
-#first_chest_index = 0
-#last_chest_index = 8
-#hopper_index = 9
-#iron_gold_index = 10
-#fuel_index = 11
-#repair_index = 12
-#good_swords_index = 13
-#bad_swords_index = 14
-#despawn_index = 15
-#zombie_index = 16
-
-// Counters
-#flesh_chest_counter = %#first_chest_index%
+#flesh_index = 0
+#compactfuel_index = 1
+#hopper_index = 2
+#smeltfuel_index = 3
+#iron_gold_index = 4
+#repair_index = 5
+#good_swords_index = 6
+#bad_swords_index = 7
+#despawn_index = 8
+#zombie_index_1 = 9
+#zombie_index_2 = 10
+#zombie_index_3 = 11
+#zombie_index_4 = 12
 
 // Timers
 #hit_timer = 0
@@ -128,9 +128,11 @@ fist_mode = false
 
 // If automatic is set, log message that we restarted successfully
 IF(@automatic)
-		LOG("&a[%&token%]&7 %DATETIME% Automatic logon successful")
-		LOGTO(%&event_file%,"Automatic logon successful")
+	LOG("&a[%&token%]&7 %DATETIME% Automatic logon successful")
+	LOGTO(%&event_file%,"Automatic logon successful")
 ENDIF
+
+@automatic = false
 
 //.................................................
 //.....Main Loop...................................
@@ -178,27 +180,46 @@ DO
 			$$<CML_close.txt>
 			WAIT(%#chest_wait_delay%t)
 
-			// Open all flesh chests, placing flesh and calculating total amount
-			#num_flesh = 0
-			FOR(#i,%#first_chest_index%,%#last_chest_index%)
-				IF(!error)
-					LOOKS(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%,0.1)
-					$$<CML_open.txt>
-						IF(%&warn% != "")
-							LOGTO(%&event_file%,%&warn%)
-							error = true
-						ELSE
-							&items = "rotten_flesh"
-							$$<CML_placeItems.txt>
-							$$<CML_countChestItems.txt>
-							#num_flesh = %#num_flesh% + %#total%
-						ENDIF
-					$$<CML_close.txt>
-					WAIT(%#chest_wait_delay%t)
-				ELSE
-					BREAK
-				ENDIF
-			NEXT
+			// Open compactfuel chest, counting how much fuel we have for compacting
+			IF(!error)
+				// Count how much fuel we have
+				LOOKS(%#block_yaw[%#compactfuel_index%]%,%#block_pitch[%#compactfuel_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "charcoal coal"
+						$$<CML_countChestItems.txt>
+						#num_compactfuel = %#total%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
+
+			// Open flesh chest, counting current compacted stacks present.  Then, place all full stacks owned
+			// As well count how many crates there are
+			IF(!error)
+				LOOKS(%#block_yaw[%#flesh_index%]%,%#block_pitch[%#flesh_index%]%,0.1)
+				$$<CML_open.txt>
+					IF(%&warn% != "")
+						LOGTO(%&event_file%,%&warn%)
+						error = true
+					ELSE
+						&items = "rotten_flesh chest"
+						$$<CML_countChestItems.txt>
+						#num_flesh = %#counts[0]% * 64
+						#num_crates = %#counts[1]%
+
+						$$<CML_placeStacks.txt>
+						#num_flesh = %#num_flesh% + %#count%
+
+						$$<CML_countInventoryItems.txt>
+						#num_flesh = %#num_flesh% + %#total%
+					ENDIF
+				$$<CML_close.txt>
+				WAIT(%#chest_wait_delay%t)
+			ENDIF
 
 			// Place irongold items, and count how many we placed
 			IF(!error)
@@ -218,7 +239,7 @@ DO
 
 			IF(!error)
 				// Count how much fuel we have
-				LOOKS(%#block_yaw[%#fuel_index%]%,%#block_pitch[%#fuel_index%]%,0.1)
+				LOOKS(%#block_yaw[%#smeltfuel_index%]%,%#block_pitch[%#smeltfuel_index%]%,0.1)
 				$$<CML_open.txt>
 					IF(%&warn% != "")
 						LOGTO(%&event_file%,%&warn%)
@@ -226,7 +247,7 @@ DO
 					ELSE
 						&items = "charcoal coal"
 						$$<CML_countChestItems.txt>
-						#num_fuel = %#total%
+						#num_smeltfuel = %#total%
 					ENDIF
 				$$<CML_close.txt>
 				WAIT(%#chest_wait_delay%t)
@@ -269,7 +290,11 @@ DO
 						#num_goodswords = %#total%
 
 						$$<CML_countChestItemsDurability.txt>
-						#num_durability = %#total% + %DURABILITY%
+						#num_durability = %#total%
+
+						IF(%ITEM% == "diamond_sword")
+							#num_durability = %#num_durability% + %DURABILITY%
+						ENDIF
 					ENDIF
 				$$<CML_close.txt>
 				WAIT(%#chest_wait_delay%t)
@@ -312,7 +337,7 @@ DO
 		ENDIF
 
 		// Log data entry to table
-		LOGTO(%&data_file%,"%DATE% %TIME% %#num_flesh% %#num_irongold% %#num_fuel% %#num_xpbottles% %#num_plainswords% %#num_goodswords% %#num_durability% %#num_badswords%")
+		LOGTO(%&data_file%,"%DATE% %TIME% %#num_flesh% %#num_crates% %#num_compactfuel% %#num_irongold% %#num_smeltfuel% %#num_xpbottles% %#num_plainswords% %#num_goodswords% %#num_durability% %#num_badswords%")
 
 		// If we're in fist mode, and we have a sword in the inventory or in the chest, exit fist mode
 
@@ -367,6 +392,7 @@ DO
 				&amounts = "1"
 				$$<CML_takeItems.txt>
 				$$<CML_countInventoryItems.txt>
+
 				IF(!enable_fist_mode)
 					IF(%#total% == 0)
 						LOG("&a[%&token%]&7 %DATETIME% Disconnected due to out of good swords")
@@ -375,9 +401,11 @@ DO
 						STOP
 					ENDIF
 				ELSE
-					fist_mode = true
-					LOG("&a[%&token%]&7 %DATETIME% Out of good swords, entering fist mode")
-					LOGTO(%&event_file%,"Out of good swords, entering fist mode")
+					IF(%#total% == 0)
+						fist_mode = true
+						LOG("&a[%&token%]&7 %DATETIME% Out of good swords, entering fist mode")
+						LOGTO(%&event_file%,"Out of good swords, entering fist mode")
+					ENDIF
 				ENDIF
 			$$<CML_close.txt>
 		ELSE
@@ -389,19 +417,26 @@ DO
 //.................................................
 //.....Attack Logic................................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	
+
+	LOOK(%#block_yaw[%#zombie_index_3%]%,%#block_pitch[%#zombie_index_3%]%)
+	TRACE(4,true)
+
+	IF(%TRACETYPE% != "ENTITY")
+		LOOK(%#block_yaw[%#zombie_index_1%]%,%#block_pitch[%#zombie_index_1%]%)
+		TRACE(4,true)
+	ENDIF
+
+	IF(%TRACETYPE% != "ENTITY")
+		LOOK(%#block_yaw[%#zombie_index_2%]%,%#block_pitch[%#zombie_index_2%]%)
+		TRACE(4,true)
+	ENDIF
+
 	IF(((%ITEM% == "diamond_sword") && (%DURABILITY% >= %#min_durability%)) || fist_mode)
-		IF(%#sweep_timer% == 0)
-			LOOKS(%#block_yaw[%#zombie_index%]%,%#block_pitch[%#zombie_index%]%,0.1)
-		ELSE
-			LOOK(%#block_yaw[%#zombie_index%]%,%#block_pitch[%#zombie_index%]%)
-		ENDIF
-
-		// Add dynamic sweep modification to zombie yaw
-		LOOK(+%#sweep_timer%,+0)
-
-		IF(%#hit_timer% == 0)
+		IF((%#hit_timer% >= %#hit_frequency%) && (%TRACETYPE% == "ENTITY"))
 			KEY(attack)
+			#hit_timer = -%#random_timer%
+		ELSE
+			INC(#hit_timer)
 		ENDIF
 	ENDIF
 
@@ -433,12 +468,6 @@ DO
 //.................................................
 //.....Timer and Loop Resetting....................
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-	IF(%#hit_timer% >= %#hit_frequency%)
-		#hit_timer = -%#random_timer%
-	ELSE
-		INC(#hit_timer)
-	ENDIF
 
 	IF(%#reset_timer% >= %#reset_frequency%)
 		#reset_timer = 0

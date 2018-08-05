@@ -27,7 +27,7 @@ DO
 
 	IF((%&id% == "lava") || (%&id% == "flowing_lava"))
 		#slot = %INVSLOT%
-		PICK(cobblestone)
+		PICK(dirt)
 		WAIT(1t)
 		KEY(use)
 		WAIT(1t)

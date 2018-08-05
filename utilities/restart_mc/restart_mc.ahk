@@ -18,10 +18,14 @@ If !WinExist("ahk_class LWJGL")
 	X := ""
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/playbutton.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/playbutton.png
 		If (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/playbutton2.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/playbutton2.png
+		}
+		If (X == "")
+		{
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/playbutton3.png
 		}
 		Sleep, 100
 	}
@@ -35,14 +39,14 @@ If !WinExist("ahk_class LWJGL")
 	S := 0
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/multiplayer.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/multiplayer.png
 		If (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/multiplayer2.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/multiplayer2.png
 		}
 		If (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/startanyway.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/startanyway.png
 			If (X != "")
 			{
 				S := 1
@@ -60,10 +64,10 @@ If !WinExist("ahk_class LWJGL")
 		X := ""
 		While (X == "")
 		{
-			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/multiplayer.png
+			ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/multiplayer.png
 			If (X == "")
 			{
-				ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/multiplayer2.png
+				ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/multiplayer2.png
 			}
 			Sleep, 100
 		}
@@ -76,7 +80,7 @@ If !WinExist("ahk_class LWJGL")
 	X := ""
 	While (X == "")
 	{
-		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, C:/Shared/CML/utilities/restart_mc/img/autojoin.png
+		ImageSearch, X, Y, 0, 0, A_ScreenWidth, A_ScreenHeight, ./img/autojoin.png
 		Sleep, 100
 	}
 	
