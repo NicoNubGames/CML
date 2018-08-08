@@ -1,12 +1,12 @@
 // Utility to close GUI-enabled blocks in a robust way
 
-GUI
+PRESS(ESCAPE)
 
 #cml_t = 0
 DO(100)
     IF(%#cml_t% >= 10)
         #cml_t = 0
-        GUI
+        PRESS(ESCAPE)
     ENDIF
     INC(#cml_t)
     WAIT(1t)

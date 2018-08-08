@@ -1,0 +1,200 @@
+
+#level = 30
+
+&item_to_enchant = "diamond_sword"
+
+UNSAFE(0)
+
+#pitch = %PITCH%
+
+&token = "level"
+
+finished_enchanting_all = false
+DO
+	IF(%LEVEL% < %#level%)
+		DO
+			LOOK(+0,90)
+
+			IF(%KEY_GRAVE%)
+				LOOK(+0,%#pitch%)
+				WAIT(1t)
+				LOG("&a[%&token%]&7 Manually stopping due to grave key press")
+				STOP
+			ENDIF
+
+			IF(%ITEM% != "experience_bottle")
+				PICK("experience_bottle")
+
+				DO(5)
+					WAIT(1t)
+				UNTIL(%ITEM% == "experience_bottle")
+
+				IF(%ITEM% != "experience_bottle")
+					// Open inventory and check whether an emerald exists.
+					// If so, convert to bottles
+					// If not, check for emeralds
+
+					GUI(inventory)
+
+					FOR(#i,1,4)
+						GETSLOTITEM(%#i%,&id)
+						IF(%&id% != "air")
+							SLOTCLICK(%#i%,L,true)
+							WAIT(5t)
+						ENDIF
+					NEXT
+
+					found = false
+					FOR(#i,9,44)
+						GETSLOTITEM(%#i%,&id)
+						IF(%&id% == "emerald")
+							found = true
+							BREAK
+						ENDIF
+					NEXT
+
+					IF(found)
+						SLOTCLICK(%#i%,R)
+						WAIT(5t)
+
+						SLOTCLICK(1)
+						WAIT(5t)
+
+						SLOTCLICK(0,L,true)
+						WAIT(5t)
+					ELSE
+
+						found = false
+						FOR(#i,9,44)
+							GETSLOTITEM(%#i%,&id)
+							IF(%&id% == "emerald_block")
+								found = true
+								BREAK
+							ENDIF
+						NEXT
+
+						IF(found)
+							SLOTCLICK(%#i%,R)
+							WAIT(5t)
+
+							SLOTCLICK(1)
+							WAIT(5t)
+
+							SLOTCLICK(0,L,true)
+							WAIT(5t)
+						ELSE
+							LOOK(+0,%#pitch%)
+							PRESS(ESCAPE)
+							WAIT(1t)
+							LOG("&a[%&token%]&7 Out of XP materials")
+							STOP
+						ENDIF
+
+					ENDIF
+
+					GUI
+				ENDIF
+			ELSE
+				KEY(use)
+			ENDIF
+
+			WAIT(1t)
+		UNTIL(%LEVEL% == %#level%)
+	ENDIF
+
+	IF(%KEY_GRAVE%)
+		LOOK(+0,%#pitch%)
+		WAIT(1t)
+		LOG("&a[%&token%]&7 Manually stopping due to grave key press")
+		STOP
+	ENDIF
+
+	LOOK(+0,%#pitch%)
+
+	$$<CML_open.txt>
+		IF(%&warn% == "")
+			// Choose an unenchanted sword.  Do this using m~a~g~i~c
+			FOR(#i,37,2)
+				GETSLOTITEM(%#i%,&id)
+				IF(%&id% == "diamond_sword")
+					SLOTCLICK(%#i%)
+					WAIT(5t)
+
+					#slot = 28 + %INVSLOT%
+					SLOTCLICK(%#slot%)
+					WAIT(5t)
+
+					unenchanted = true
+					FOREACH(enchantments)
+						unenchanted = false
+						BREAK
+					NEXT
+
+					IF(unenchanted)
+						BREAK
+					ENDIF
+				ENDIF
+			NEXT
+
+			IF(unenchanted)
+				#slot = 28 + %INVSLOT%
+				SLOTCLICK(%#slot%)
+				WAIT(5t)
+				SLOTCLICK(0)
+				WAIT(5t)
+
+				PRESSBUTTON(2)
+
+				SLOTCLICK(0)
+				WAIT(5t)
+
+				found = false
+				FOR(#i,2,37)
+					GETSLOTITEM(%#i%,&id)
+					IF(%&id% == "air")
+						found = true
+						BREAK
+					ENDIF
+				NEXT
+
+				IF(found)
+					SLOTCLICK(%#i%)
+					WAIT(5t)
+				ELSE
+					LOG("&a[%&token%]&7 Out of space")
+					PRESS(ESCAPE)
+					WAIT(1t)
+					STOP
+				ENDIF
+
+				WAIT(5t)
+			ELSE
+
+				found = false
+				FOR(#i,2,37)
+					GETSLOTITEM(%#i%,&id)
+					IF(%&id% == "air")
+						found = true
+						BREAK
+					ENDIF
+				NEXT
+
+				IF(found)
+					SLOTCLICK(%#i%)
+					WAIT(5t)
+				ENDIF
+
+				finished_enchanting_all = true
+			ENDIF
+		ELSE
+			LOG(%&warn%)
+			STOP
+		ENDIF
+
+	$$<CML_close.txt>
+
+UNTIL(finished_enchanting_all)
+
+LOG("&a[%&token%]&7 All %&item_to_enchant%s enchanted")
+
+ENDUNSAFE

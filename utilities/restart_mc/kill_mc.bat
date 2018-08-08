@@ -1,2 +1,2 @@
-cd "%~dp0"
-AutoHotkey kill_mc.ahk
+taskkill /F /IM javaw.exe /T
+taskkill /F /IM MinecraftLauncher.exe /T

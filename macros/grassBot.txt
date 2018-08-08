@@ -1,0 +1,36 @@
+
+
+
+UNSAFE(0)
+
+$$<grassBot_blockPositions.txt>
+
+DO
+	done = true
+	FOR(#i,0,%#block_end%)
+		IF(%ITEM% != "shears")
+			PICK("shears")
+		ENDIF
+
+		LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
+		TRACE(6,false)
+
+		IF(%TRACEY% == %YPOS%)
+			done = false
+			WAIT(1t)
+			KEY(attack)
+			BREAK
+	   	ENDIF
+	NEXT
+
+	IF(done)
+		PICK("dye:15")
+		LOOK(+0,90)
+		WAIT(1t)
+		KEY(use)
+	ENDIF
+
+	WAIT(1t)
+LOOP
+
+ENDUNSAFE

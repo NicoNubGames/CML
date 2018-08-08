@@ -1,0 +1,6 @@
+
+
+IFMATCHES(%CHATCLEAN%,^You sense a diamond nearby)
+	GUI(inventory)
+	GUI
+ENDIF

@@ -1,4 +1,5 @@
-﻿CoordMode, Screen
+﻿CoordMode, Pixel, Screen
+CoordMode, Mouse, Screen
 
 Process, Close, javaw.exe
 
