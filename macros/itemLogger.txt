@@ -9,10 +9,10 @@ $$<itemLogger_blockPositions.txt>
 #saved_yaw = %CARDINALYAW%
 #saved_pitch = %PITCH%
 
-$$<CML_snapYaw.txt>
+#mat_length = 0
 
-LOGTO(mats.txt,[item] %DATETIME%)
-
+// Look at each chest and open, then go through each item.
+// If an item is not in the mats list, add it.  Else, if it is, add its number to that entry
 FOR(#i,0,%#block_end%)
     LOOK(%#block_yaw[%#i%]%,%#block_pitch[%#i%]%)
 
@@ -22,44 +22,32 @@ FOR(#i,0,%#block_end%)
         LOG("&a[item]&7 %&warn%")
     ENDIF
 
-    // Initialize array for mats and amounts for current chest
-    FOR(#j,0,53)
-        &mat_names[%#j%] = "air"
-        #mat_counts[%#j%] = 0
-    NEXT
-
     // Loop through chest and add to mats array as needed
     FOR(#j,0,53)
         GETSLOTITEM(%#j%,&item,#size)
 
         IF(%&item% != "air")
-            // Find index of this material for this chest, if it exists.
+            // Find index of this material for this chest, if it exists
             // If it doesn't exist, add it to the array
             UNSET(found)
-            FOR(#k,0,53)
-                IF((%&item% == %&mat_names[%#k%]%))
-                    SET(found)
+            FOR(#k,0,%#mat_length%)
+                IF(%#k% == %#mat_length%)
                     BREAK
-                ELSEIF(%&mat_names[%#k%]% == "air")
+                ENDIF
+
+                IF(%&item% == %&mat_names[%#k%]%)
+                    SET(found)
                     BREAK
                 ENDIF
             NEXT
 
             IF(!found)
                 &mat_names[%#k%] = %&item%
+                #mat_counts[%#k%] = 0
+                INC(#mat_length)
             ENDIF
 
             #mat_counts[%#k%] = %#mat_counts[%#k%]% + %#size%
-        ENDIF
-    NEXT
-
-    // Log all of found items in this chest to mats.txt
-    FOR(#j,0,53)
-        IF(%&mat_names[%#j%]% != "air")
-            #chest_id = %#i% + 1
-            LOGTO(mats.txt,%#chest_id% %#block_x[%#i%]% %#block_y[%#i%]% %#block_z[%#i%]% %&mat_names[%#j%]% %#mat_counts[%#j%]%)
-        ELSE
-            BREAK
         ENDIF
     NEXT
 
@@ -69,6 +57,21 @@ FOR(#i,0,%#block_end%)
         LOG("&a[item]&7 %&warn%")
     ENDIF
 NEXT
+
+// Log all found items, in order of finding them, to the mats.txt file in space-delimited form
+FOR(#i,0,%#mat_length%)
+    IF(%#i% == %#mat_length%)
+        BREAK
+    ENDIF
+
+    IF(%#i% == 0)
+        &data = "%#mat_counts[%#i%]%"
+    ELSE
+        &data = "%&data% %#mat_counts[%#i%]%"
+    ENDIF
+NEXT
+
+LOGTO(mats.txt,%&data%)
 
 LOOK(%#saved_yaw%,%#saved_pitch%)
 ENDUNSAFE

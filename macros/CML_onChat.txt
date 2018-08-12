@@ -5,3 +5,8 @@ $$<CML_snitchChat.txt>
 
 // If the diamond message occurs, forcibly stop mining
 $$<CML_diamondChat.txt>
+
+// Disconnect immediately if server is restarting
+IFMATCHES(%CHATCLEAN%,^Restarting now!$)
+	DISCONNECT
+ENDIF

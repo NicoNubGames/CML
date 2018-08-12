@@ -63,7 +63,7 @@ UNSAFE(0)
 #max_flesh = 27993
 
 // Minimum health level we will tolerate before logging out
-#minimum_health_limit = 15
+#minimum_health_limit = 8
 
 // If a snitch event happens within this distance, disconnect
 @#snitch_alert_radius = 10
@@ -119,12 +119,6 @@ $$<zombieBot_blockPositions.txt>
 $$<CML_initSafety.txt>
 
 fist_mode = false
-
-// If automatic is set, log message that we restarted successfully
-IF(@automatic)
-	LOG("&a[%&token%]&7 %DATETIME% Automatic logon successful")
-	LOGTO(%&event_file%,"Automatic logon successful")
-ENDIF
 
 @automatic = false
 
@@ -297,8 +291,12 @@ DO
 				BREAK
 			ENDIF
 
-			// If there was an error, wait two seconds before trying again
-			WAIT(40t)
+			// If there was an error, wait about 30 seconds before trying again (but still write to timeout)
+			// Either something is blocking, a chest isn't there, we lost connection, or the server is restarting
+			DO(8)
+				WAIT(80t)
+				LOGTO(zombieBot_timeout.txt,)
+			LOOP
 		LOOP
 
 		IF(error)
@@ -377,8 +375,6 @@ DO
 				ELSE
 					IF(%#total% == 0)
 						fist_mode = true
-						LOG("&a[%&token%]&7 %DATETIME% Out of good swords, entering fist mode")
-						LOGTO(%&event_file%,"Out of good swords, entering fist mode")
 					ENDIF
 				ENDIF
 			$$<CML_close.txt>
